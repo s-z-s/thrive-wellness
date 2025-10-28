@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Thrive Wellness - AI Wellness Companion</title>
+    <!-- Tailwind CSS from CDN (alternative) -->
+    <link href="https://unpkg.com/tailwindcss@^2/dist/tailwind.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Epilogue:wght@400;500;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+    <!-- Local stylesheet -->
+    <link rel="stylesheet" href="style.css">
+    <style>
+        body {
+            font-family: 'Epilogue', sans-serif;
+            width: 400px;
+            height: 580px;
+        }
+        .material-symbols-outlined {
+          font-variation-settings:
+          'FILL' 0,
+          'wght' 300,
+          'GRAD' 0,
+          'opsz' 24
+        }
+        .animate-growAndBounce {
+            animation: growAndBounce 1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        .animate-happyWiggle {
+            animation: happyWiggle 4s ease-in-out infinite;
+        }
+        .animate-blink {
+            animation: blink 5s ease-in-out infinite;
+        }
+        @keyframes growAndBounce {
+            0% { transform: scale(0.8); opacity: 0.5; }
+            70% { transform: scale(1.05); opacity: 1; }
+            85% { transform: scale(0.98); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        @keyframes happyWiggle {
+            0%, 100% { transform: rotate(-2deg) scale(1); }
+            25% { transform: rotate(2deg) scale(1.02); }
+            50% { transform: rotate(-1deg) scale(1); }
+            75% { transform: rotate(1deg) scale(1.02); }
+        }
+        @keyframes blink {
+            0%, 80%, 100% { transform: scaleY(1); }
+            82% { transform: scaleY(0.1); }
+        }
+    </style>
+</head>
+<body class="font-display" style="background-color: #FAFAF8;">
+    <div class="relative flex h-[580px] w-[400px] flex-col group/design-root overflow-hidden">
+
+        <!-- ===== Main View ===== -->
+        <div id="view-main" class="flex flex-col h-full" data-view="main">
+            <h2 class="text-aegis-text tracking-light font-bold leading-tight text-center pt-4 pb-1" style="font-size: 20px;">Thrive Wellness</h2>
+            <div class="flex flex-col px-8 pb-1" style="height: 220px;">
+                <!-- Tree and counters row -->
+                <div class="flex items-center flex-1">
+                    <!-- Tree on the left -->
+                    <div id="plant-container" class="w-1/2 h-full flex items-center justify-center">
+                        <!-- SVG will be injected here by ui.js -->
+                    </div>
+                    <!-- Level and Activities on the right -->
+                    <div class="w-1/2 flex flex-col items-center gap-2 pl-4">
+                        <div class="w-full flex-col gap-1 rounded-lg border border-gray-200/80 bg-white/50 p-2 items-center text-center shadow-sm">
+                            <p class="text-aegis-text tracking-light text-xl font-bold leading-tight" id="garden-level">5</p>
+                            <div class="flex items-center justify-center gap-2">
+                                <p class="text-xs font-medium leading-normal" style="color: #78A193;">Level</p>
+                            </div>
+                        </div>
+                        <div class="w-full flex-col gap-1 rounded-lg border border-gray-200/80 bg-white/50 p-2 items-center text-center shadow-sm">
+                            <p class="text-aegis-text tracking-light text-xl font-bold leading-tight" id="garden-count">23</p>
+                            <div class="flex items-center justify-center gap-2">
+                                <p class="text-xs font-medium leading-normal" style="color: #78A193;">Activities</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Garden message below -->
+                <p id="garden-message" class="garden-message text-center text-sm mt-2"></p>
+            </div>
+            <div class="flex flex-1 max-w-[480px] flex-col items-stretch px-8 pb-4">
+                <div class="flex items-center justify-between w-full h-14 rounded-xl px-4 shadow-sm mt-3" style="background-color: #ECF0ED;">
+                    <div class="text-base font-bold uppercase tracking-widest" id="timer-session-label" style="color: #78A193;">Work</div>
+                    <div class="text-2xl font-bold tracking-wider" id="timer-display" style="color: #78A193;">25:00</div>
+                    <div class="timer-controls">
+                        <button id="timer-start" class="flex items-center justify-center h-8 w-8 cursor-pointer rounded-full text-white transition-transform active:scale-[0.95]" style="background-color: #78A193;">
+                            <span class="material-symbols-outlined text-2xl">play_arrow</span>
+                        </button>
+                        <button id="timer-stop" class="flex items-center justify-center h-8 w-8 cursor-pointer rounded-full text-white transition-transform active:scale-[0.95] hidden" style="background-color: #78A193;">
+                            <span class="material-symbols-outlined text-2xl">pause</span>
+                        </button>
+                        <button id="timer-reset" class="flex items-center justify-center h-8 w-8 cursor-pointer rounded-full bg-gray-500 text-white transition-transform active:scale-[0.95]">
+                            <span class="material-symbols-outlined text-xl">refresh</span>
+                        </button>
+                    </div>
+                </div>
+                <p class="text-[#806080] text-sm font-medium leading-normal pb-4 pt-4 px-8 text-center font-quote" id="quote-text">"The secret to getting ahead is getting started."</p>
+                <button class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-4 text-white shadow-md text-sm font-bold leading-normal tracking-[0.015em] w-full transition-transform active:scale-[0.98] mb-2" style="background-color: #78A193;" data-target-view="stretches">
+                    <span class="material-symbols-outlined mr-2 text-lg">self_improvement</span>
+                    <span class="truncate">Desk Stretches</span>
+                </button>
+                <button class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-4 text-white shadow-md text-sm font-bold leading-normal tracking-[0.015em] w-full transition-transform active:scale-[0.98] mb-2" style="background-color: #78A193;" data-target-view="breathing">
+                    <span class="material-symbols-outlined mr-2 text-lg">spa</span>
+                    <span class="truncate">Stress Relief</span>
+                </button>
+                <button class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-4 text-white shadow-md text-sm font-bold leading-normal tracking-[0.015em] w-full transition-transform active:scale-[0.98]" style="background-color: #78A193;" data-target-view="chat">
+                    <span class="material-symbols-outlined mr-2 text-lg">smart_toy</span>
+                    <span class="truncate">Thrive Wellness Coach</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- ===== Stretches View ===== -->
+        <div id="view-stretches" class="view hidden" data-view="stretches" style="background-color: #FAFAF8;">
+            <header class="view-header" style="background-color: transparent;">
+                <button class="back-button" style="color: #78A193; width: 32px; height: 32px;" data-target-view="main">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"> <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /> </svg>
+                </button>
+                <h1 class="view-title" style="color: #333333; font-size: 18px; padding-right: 0;">Desk Stretches</h1>
+                  <div class="header-icon" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                      <span class="material-symbols-outlined" style="color: #78A193;">self_improvement</span>
+                  </div>
+            </header>
+            <div class="stretch-content">
+                <div id="stretch-video-container">
+                    <video id="stretch-video" autoplay loop muted playsinline width="100%"></video>
+                </div>
+                <h2 id="stretch-title"></h2>
+                <p id="stretch-description"></p>
+                <div class="stretch-nav">
+                    <button id="stretch-prev" class="btn btn-nav">← Prev</button>
+                    <button id="stretch-next" class="btn btn-nav">Next →</button>
+                </div>
+                <button id="stretch-done" class="btn btn-primary btn-full-width">I'm better now</button>
+            </div>
+        </div>
+
+        <!-- ===== Breathing View ===== -->
+        <div id="view-breathing" class="view hidden" data-view="breathing" style="background-color: #FAFAF8;">
+            <header class="view-header" style="background-color: transparent;">
+                <button class="back-button" style="color: #78A193; width: 32px; height: 32px;">
+                      <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"> <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /> </svg>
+                </button>
+                <h1 class="view-title" style="color: #333333; font-size: 18px; padding-right: 0;">Stress Relief</h1>
+                  <div class="header-icon" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                        <span class="material-symbols-outlined" style="color: #78A193;">spa</span>
+                    </div>
+            </header>
+            <div class="content-area-center">
+                <div id="breathing-circle" class="breathing-circle">
+                    <span id="breathing-text">Get Ready...</span>
+                    <!-- **FIXED: Added breathing-timer span** -->
+                    <span id="breathing-timer" class="breathing-timer-number"></span>
+                </div>
+                  <p class="breathing-instruction">Follow the rhythm to practice Box Breathing - a simple technique that reduces stress and improves focus.</p>
+            </div>
+             <!-- **FIXED: Buttons hidden by default now** -->
+             <button id="breathing-start" class="btn btn-primary btn-full-width hidden">Start Session</button>
+             <button id="breathing-done" class="btn btn-primary btn-full-width hidden" data-target-view="main">End Session</button>
+             <button id="breathing-feeling-better" class="btn btn-primary btn-full-width" style="background-color: #78A193; margin-top: 16px;" data-target-view="main">I'm better now!</button>
+             <div class="breathing-benefits" style="max-width: 320px; margin: 16px auto 0; text-align: center; color: #6b7280; font-size: 13px; line-height: 1.4;">
+               <p><strong>Benefits:</strong> Reduces stress, improves focus, lowers blood pressure, and promotes better sleep.</p>
+             </div>
+        </div>
+
+        <!-- ===== Chat View ===== -->
+        <div id="view-chat" class="view hidden" data-view="chat" style="background-color: #FAFAF8;">
+            <header class="view-header" style="background-color: transparent;">
+                <button class="back-button" style="color: #78A193; width: 32px; height: 32px;" data-target-view="main">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"> <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /> </svg>
+                </button>
+                <h1 class="view-title" style="color: #333333; font-size: 18px; padding-right: 0;">Thrive Wellness Coach</h1>
+                <div class="header-icon" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                      <span class="material-symbols-outlined" style="color: #78A193;">smart_toy</span>
+                </div>
+            </header>
+            <div id="chat-messages" class="chat-messages">
+                <!-- Welcome Message Above Suggestions -->
+                <div class="welcome-header">
+                    <p>Hello! I'm ThriveBot, your AI wellness coach. What wellness question can I help you with today?</p>
+                </div>
+
+                <!-- Quick Question Suggestions -->
+                <div id="chat-suggestions" class="chat-suggestions">
+                    <div class="suggestions-header">You might want to ask:</div>
+                    <button class="suggestion-btn" data-question="How can I reduce eye strain from computer work?">
+                        <span class="suggestion-icon">👁️</span>
+                        <span class="suggestion-text">How can I reduce eye strain from computer work?</span>
+                    </button>
+                    <button class="suggestion-btn" data-question="What are some quick desk stretches I can do?">
+                        <span class="suggestion-icon">🧘</span>
+                        <span class="suggestion-text">What are some quick desk stretches I can do?</span>
+                    </button>
+                    <button class="suggestion-btn" data-question="How do I maintain good posture while working?">
+                        <span class="suggestion-icon">📐</span>
+                        <span class="suggestion-text">How do I maintain good posture while working?</span>
+                    </button>
+                </div>
+            </div>
+
+            <form id="chat-form" class="chat-form">
+                <input type="text" id="chat-input" placeholder="Ask ThriveBot anything...">
+                <button type="submit" class="send-button">
+                    <span class="material-symbols-outlined" style="font-size: 20px;">send</span>
+                </button>
+            </form>
+        </div>
+
+    </div>
+
+    <!-- Proactive Notification Overlay -->
+    <div id="proactive-overlay" class="proactive-overlay hidden">
+        <div class="proactive-content">
+            <div class="proactive-icon" style="background-color: #78A193;">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div class="proactive-text">
+                <h4 id="proactive-title">Thrive Wellness</h4>
+                <p id="proactive-message">Time for a micro-break! Stretch or look away for a moment.</p>
+            </div>
+            <button id="proactive-dismiss" class="proactive-dismiss">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+            </button>
+        </div>
+    </div>
+    <!-- Hidden Audio Element -->
+    <audio id="alarm-audio" preload="auto" class="hidden">
+        <source src="alarm.wav" type="audio/wav">
+        Your browser does not support the audio element.
+    </audio>
+    <!-- Timer Completion Overlay -->
+    <div id="timer-overlay" class="overlay hidden">
+        <div class="overlay-content">
+            <div class="overlay-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <h2 id="overlay-title">Work Session Complete!</h2>
+            <p id="overlay-message">Great job! Time for a well-deserved break.</p>
+            <div id="overlay-timer" class="overlay-timer hidden">
+                <div class="timer-circle">
+                    <span id="overlay-timer-display">05:00</span>
+                </div>
+                <p id="overlay-timer-label">Break time remaining</p>
+            </div>
+            <div class="overlay-buttons">
+                <button id="overlay-start-break" class="btn btn-primary">Start Break</button>
+                <button id="overlay-skip-break" class="btn btn-secondary">Skip Break</button>
+            </div>
+        </div>
+    </div>
+    <!-- Toast Notification -->
+    <div id="toast" class="toast hidden">
+        <span id="toast-message">Timer completed!</span>
+    </div>
+    <!-- Local UI logic script -->
+    <script src="ui.js"></script>
+</body>
+</html>
