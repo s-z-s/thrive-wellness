@@ -10,6 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Epilogue:wght@400;500;700;800&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;500&display=swap" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined" rel="stylesheet">
+    <script src="chart.js"></script>
     <!-- Local stylesheet -->
     <link rel="stylesheet" href="style.css">
     <style>
@@ -57,10 +58,20 @@
 
         <!-- ===== Main View ===== -->
         <div id="view-main" class="flex flex-col h-full" data-view="main">
-            <h2 class="text-aegis-text tracking-light font-bold leading-tight text-center pt-4 pb-1" style="font-size: 20px;">Thrive Wellness</h2>
+            <div class="flex items-center px-4 pt-4 pb-1">
+                <div class="flex-1"></div>
+                <h2 class="text-aegis-text tracking-light font-bold leading-tight text-center" style="font-size: 20px;">Thrive Wellness</h2>
+                <div class="flex-1 flex justify-end">
+                    <button class="header-icon-btn" id="menu-btn">
+                        <span class="material-symbols-outlined" style="color: #9CA3AF; font-size: 20px;">more_vert</span>
+                    </button>
+                </div>
+            </div>
             <div class="flex flex-col px-8 pb-1" style="height: 220px;">
+                <!-- Quote -->
+                <p class="text-[#806080] text-sm font-medium leading-normal pt-1 px-8 text-center font-quote" id="quote-text">"The secret to getting ahead is getting started."</p>
                 <!-- Tree and counters row -->
-                <div class="flex items-center flex-1">
+                <div class="flex items-center flex-1 pt-0">
                     <!-- Tree on the left -->
                     <div id="plant-container" class="w-1/2 h-full flex items-center justify-center">
                         <!-- SVG will be injected here by ui.js -->
@@ -73,7 +84,7 @@
                                 <p class="text-xs font-medium leading-normal" style="color: #78A193;">Level</p>
                             </div>
                         </div>
-                        <div class="w-full flex-col gap-1 rounded-lg border border-gray-200/80 bg-white/50 p-2 items-center text-center shadow-sm">
+                        <div class="w-full flex-col gap-1 rounded-lg border border-gray-200/80 bg-white/50 p-2 items-center text-center shadow-sm progress-container">
                             <p class="text-aegis-text tracking-light text-xl font-bold leading-tight" id="garden-count">23</p>
                             <div class="flex items-center justify-center gap-2">
                                 <p class="text-xs font-medium leading-normal" style="color: #78A193;">Activities</p>
@@ -81,11 +92,11 @@
                         </div>
                     </div>
                 </div>
-                <!-- Garden message below -->
-                <p id="garden-message" class="garden-message text-center text-sm mt-2"></p>
             </div>
             <div class="flex flex-1 max-w-[480px] flex-col items-stretch px-8 pb-4">
-                <div class="flex items-center justify-between w-full h-14 rounded-xl px-4 shadow-sm mt-3" style="background-color: #ECF0ED;">
+                <!-- Garden message -->
+                <p id="garden-message" class="garden-message text-center text-sm mt-2 mb-4"></p>
+                <div class="flex items-center justify-between w-full h-14 rounded-xl px-4 shadow-sm mb-2" style="background-color: #ECF0ED;">
                     <div class="text-base font-bold uppercase tracking-widest" id="timer-session-label" style="color: #78A193;">Work</div>
                     <div class="text-2xl font-bold tracking-wider" id="timer-display" style="color: #78A193;">25:00</div>
                     <div class="timer-controls">
@@ -100,7 +111,6 @@
                         </button>
                     </div>
                 </div>
-                <p class="text-[#806080] text-sm font-medium leading-normal pb-4 pt-4 px-8 text-center font-quote" id="quote-text">"The secret to getting ahead is getting started."</p>
                 <button class="flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-12 px-4 text-white shadow-md text-sm font-bold leading-normal tracking-[0.015em] w-full transition-transform active:scale-[0.98] mb-2" style="background-color: #78A193;" data-target-view="stretches">
                     <span class="material-symbols-outlined mr-2 text-lg">self_improvement</span>
                     <span class="truncate">Desk Stretches</span>
@@ -167,6 +177,141 @@
              <div class="breathing-benefits" style="max-width: 320px; margin: 16px auto 0; text-align: center; color: #6b7280; font-size: 13px; line-height: 1.4;">
                <p><strong>Benefits:</strong> Reduces stress, improves focus, lowers blood pressure, and promotes better sleep.</p>
              </div>
+        </div>
+
+        <!-- ===== Activity History View ===== -->
+        <div id="view-activity-history" class="view hidden" data-view="activity-history" style="background-color: #FAFAF8;">
+                 <header class="view-header" style="background-color: transparent;">
+                     <button class="back-button" style="color: #78A193; width: 32px; height: 32px;" data-target-view="main">
+                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"> <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /> </svg>
+                     </button>
+                     <h1 class="view-title" style="color: #333333; font-size: 18px; padding-right: 0;">Activity History</h1>
+                     <div class="header-icon" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                         <span class="material-symbols-outlined" style="color: #78A193;">history</span>
+                     </div>
+                 </header>
+                 <div class="activity-history-content">
+                     <!-- Charts Section with Tabs -->
+                     <div class="charts-section">
+                         <h2 class="section-title">Activity Trends</h2>
+                         <div class="chart-tabs">
+                             <button class="chart-tab active" data-chart="weekly">Weekly</button>
+                             <button class="chart-tab" data-chart="monthly">Monthly</button>
+                         </div>
+                         <div class="chart-container">
+                             <h3 class="chart-title">Weekly Activity Trends</h3>
+                             <div id="weekly-chart" class="chart-svg-container"></div>
+                         </div>
+                         <div class="chart-container hidden">
+                             <h3 class="chart-title">Monthly Activity Trends</h3>
+                             <div id="monthly-chart" class="chart-svg-container"></div>
+                         </div>
+                     </div>
+
+                     <!-- History Tables Section with Tabs -->
+                     <div class="history-tables">
+                         <h2 class="section-title">Detailed Activity History</h2>
+                         <div class="table-tabs">
+                             <button class="table-tab active" data-table="work-break">Work & Break</button>
+                             <button class="table-tab" data-table="stretches">Stretches</button>
+                             <button class="table-tab" data-table="breathing">Breathing</button>
+                         </div>
+
+                         <!-- Work & Break History -->
+                         <div class="history-category">
+                             <h3 class="category-title">Work & Break Sessions</h3>
+                             <div class="table-container">
+                                 <table id="work-break-table" class="activity-table">
+                                     <thead>
+                                         <tr>
+                                             <th>Date</th>
+                                             <th>Time</th>
+                                             <th>Type</th>
+                                             <th>Duration</th>
+                                         </tr>
+                                     </thead>
+                                     <tbody>
+                                         <!-- Data will be populated by JavaScript -->
+                                     </tbody>
+                                 </table>
+                             </div>
+                         </div>
+
+                         <!-- Desk Stretches History -->
+                         <div class="history-category hidden">
+                             <h3 class="category-title">Desk Stretches</h3>
+                             <div class="table-container">
+                                 <table id="stretches-table" class="activity-table">
+                                     <thead>
+                                         <tr>
+                                             <th>Date</th>
+                                             <th>Time</th>
+                                             <th>Stretches Completed</th>
+                                         </tr>
+                                     </thead>
+                                     <tbody>
+                                         <!-- Data will be populated by JavaScript -->
+                                     </tbody>
+                                 </table>
+                             </div>
+                         </div>
+
+                         <!-- Stress Relief History -->
+                         <div class="history-category hidden">
+                             <h3 class="category-title">Stress Relief</h3>
+                             <div class="table-container">
+                                 <table id="breathing-table" class="activity-table">
+                                     <thead>
+                                         <tr>
+                                             <th>Date</th>
+                                             <th>Time</th>
+                                             <th>Cycles Completed</th>
+                                         </tr>
+                                     </thead>
+                                     <tbody>
+                                         <!-- Data will be populated by JavaScript -->
+                                     </tbody>
+                                 </table>
+                             </div>
+                         </div>
+                     </div>
+                 </div>
+             </div>
+    
+         </div>
+        <!-- ===== About View ===== -->
+        <div id="view-about" class="view hidden" data-view="about" style="background-color: #FAFAF8;">
+            <header class="view-header" style="background-color: transparent;">
+                <button class="back-button" style="color: #78A193; width: 32px; height: 32px;" data-target-view="main">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"> <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /> </svg>
+                </button>
+                <h1 class="view-title" style="color: #333333; font-size: 18px; padding-right: 0;">About</h1>
+                <div class="header-icon" style="width: 32px; height: 32px;"></div>
+            </header>
+            <div class="about-content">
+                <div class="about-icon-container">
+                    <img src="icons/icon128.png" alt="Thrive Wellness Icon" class="about-app-icon">
+                </div>
+                <div class="about-section">
+                    <h2 class="about-title">About Thrive Wellness</h2>
+                    <p class="about-text">Thrive Wellness is your personal wellness companion, designed to help you stay healthy, focused, and refreshed during your workday at the computer.</p>
+                    <p class="about-text">It provides gentle reminders for breaks, guided desk stretches, a focus timer, calming breathing exercises, and even an AI coach to help you navigate your well-being challenges – all seamlessly integrated into your browser.</p>
+                </div>
+
+                <div class="about-section mt-10">
+                    <h2 class="about-title">Your Privacy Matters Most</h2>
+                    <p class="about-text">We believe your well-being journey is personal. Thrive Wellness is built with privacy at its core:</p>
+                    <ul class="about-list">
+                        <li><strong>No Data Collection:</strong> Thrive Wellness never collects, stores, or transmits your personal data, browsing history, or activity.</li>
+                        <li><strong>On-Device Processing:</strong> All features, including the AI analysis and suggestions, happen entirely on your own computer. Nothing is sent to any external servers.</li>
+                        <li><strong>Complete Control:</strong> Your information stays yours.</li>
+                    </ul>
+                </div>
+
+                <div class="about-footer">
+                    <p class="about-footer-text">Stay well, stay focused, and stay private with Thrive Wellness!</p>
+                </div>
+            </div>
         </div>
 
         <!-- ===== Chat View ===== -->
@@ -248,6 +393,10 @@
             </div>
             <h2 id="overlay-title">Work Session Complete!</h2>
             <p id="overlay-message">Great job! Time for a well-deserved break.</p>
+            <div id="activity-reward" class="activity-reward">
+                <div class="reward-icon">🌱</div>
+                <p class="reward-text">+1 Activity Point Earned!</p>
+            </div>
             <div id="overlay-timer" class="overlay-timer hidden">
                 <div class="timer-circle">
                     <span id="overlay-timer-display">05:00</span>
@@ -263,6 +412,23 @@
     <!-- Toast Notification -->
     <div id="toast" class="toast hidden">
         <span id="toast-message">Timer completed!</span>
+    </div>
+    <!-- Header Menu Popup -->
+    <div id="header-menu" class="header-menu hidden">
+        <div class="header-menu-content">
+            <button class="header-menu-item" id="menu-about">
+                <span class="material-symbols-outlined">info</span>
+                <span>About</span>
+            </button>
+            <button class="header-menu-item" id="menu-activity-history">
+                <span class="material-symbols-outlined">history</span>
+                <span>Activity History</span>
+            </button>
+            <button class="header-menu-item" id="menu-settings">
+                <span class="material-symbols-outlined">settings</span>
+                <span>Settings</span>
+            </button>
+        </div>
     </div>
     <!-- Local UI logic script -->
     <script src="ui.js"></script>

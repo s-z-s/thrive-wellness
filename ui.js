@@ -16,6 +16,16 @@ let timerState = {
 let gardenState = { count: 0, level: 0 };
 let previousGardenLevel = -1;
 let currentStretchIndex = 0;
+let stretchesViewed = 0;
+let breathingCyclesCompleted = 0;
+
+// --- Activity History State ---
+let activityHistory = {
+    workSessions: [],
+    breakSessions: [],
+    stretches: [],
+    breathing: []
+};
 
 // --- Stretch Data ---
 const stretches = [
@@ -94,6 +104,17 @@ function cacheDOMElements() {
     dom.views = document.querySelectorAll('.view');
     dom.backButtons = document.querySelectorAll('.back-button');
     dom.navButtons = document.querySelectorAll('button[data-target-view]');
+
+    // Add Activity History view to DOM cache
+    const activityHistoryView = document.getElementById('view-activity-history');
+    if (activityHistoryView) {
+        // Ensure it's in the views collection
+        const viewsArray = Array.from(dom.views);
+        if (!viewsArray.includes(activityHistoryView)) {
+            viewsArray.push(activityHistoryView);
+            dom.views = viewsArray;
+        }
+    }
 
     // Main View
     dom.timerDisplay = document.getElementById('timer-display');
@@ -180,7 +201,19 @@ function showView(viewName) {
 
     // Initialize stretch view when navigating TO stretches
     if (viewName === 'stretches' && currentView !== 'stretches') {
+        stretchesViewed = 0; // Reset counter when entering stretches view
         displayStretch(0);
+    }
+
+    // Initialize breathing view when navigating TO breathing
+    if (viewName === 'breathing' && currentView !== 'breathing') {
+        breathingCyclesCompleted = 0; // Reset counter when entering breathing view
+    }
+
+    // Initialize activity history view when navigating TO activity-history
+    if (viewName === 'activity-history' && currentView !== 'activity-history') {
+        // Activity history is loaded when the menu item is clicked
+        loadActivityHistory();
     }
 
     // Update current view AFTER all checks
@@ -272,6 +305,12 @@ function updateGardenDisplay() {
     const message = gardenMessages[messageIndex] || gardenMessages[0];
     if (dom.gardenMessage) dom.gardenMessage.textContent = message;
 
+    // Update progress indicator
+    updateProgressIndicator();
+
+    console.log("Garden state updated:", gardenState);
+    console.log("Progress should be updated");
+
     // Grow Animation Logic - only when level increases and not on initial load
     if (gardenState.level > previousGardenLevel && previousGardenLevel !== -1 && dom.plantContainer) {
         dom.plantContainer.classList.add('animate-growAndBounce');
@@ -284,10 +323,235 @@ function updateGardenDisplay() {
     previousGardenLevel = gardenState.level;
 }
 
+function updateProgressIndicator() {
+    const count = gardenState.count;
+    let currentLevelMin = 0;
+    let nextLevelMin = 5; // Default for reaching level 2
+
+    // Determine current level range
+    if (count >= 75) {
+        currentLevelMin = 75; // Max level reached
+        nextLevelMin = 75;
+    } else if (count >= 45) {
+        currentLevelMin = 45;
+        nextLevelMin = 75;
+    } else if (count >= 25) {
+        currentLevelMin = 25;
+        nextLevelMin = 45;
+    } else if (count >= 15) {
+        currentLevelMin = 15;
+        nextLevelMin = 25;
+    } else if (count >= 10) {
+        currentLevelMin = 10;
+        nextLevelMin = 15;
+    } else if (count >= 5) {
+        currentLevelMin = 5;
+        nextLevelMin = 10;
+    } else {
+        currentLevelMin = 0;
+        nextLevelMin = 5;
+    }
+
+    // Calculate progress percentage
+    let progressPercent = 0;
+    if (nextLevelMin > currentLevelMin) {
+        progressPercent = ((count - currentLevelMin) / (nextLevelMin - currentLevelMin)) * 100;
+    } else {
+        progressPercent = 100; // Max level
+    }
+
+    // Update the progress border
+    const gardenCountElement = document.getElementById('garden-count');
+    const progressContainer = document.querySelector('.progress-container');
+
+    console.log("Progress percent:", progressPercent);
+
+    if (gardenCountElement) {
+        gardenCountElement.style.setProperty('--progress-percent', `${progressPercent}%`);
+        console.log("Set CSS variable on garden-count:", `${progressPercent}%`);
+    }
+
+    if (progressContainer) {
+        progressContainer.style.setProperty('--progress-percent', `${progressPercent}%`);
+        console.log("Set CSS variable on progress-container:", `${progressPercent}%`);
+    }
+}
+
 function completeActivity() {
     gardenState.count++;
     updateGardenDisplay();
     chrome.storage.local.set({ garden: gardenState });
+
+    // Record activity for history
+    recordActivity('garden', { timestamp: Date.now(), count: gardenState.count });
+}
+
+function handleStretchCompletion() {
+    if (stretchesViewed >= 3) {
+        // Show success modal with activity point celebration
+        showStretchSuccessModal();
+    } else {
+        // Show confirmation modal asking if they really want to stop
+        showStretchConfirmationModal();
+    }
+}
+
+function showStretchConfirmationModal() {
+    // Create confirmation modal
+    const modal = document.createElement('div');
+    modal.id = 'stretch-confirmation-modal';
+    modal.className = 'stretch-modal-overlay';
+    modal.innerHTML = `
+        <div class="stretch-modal-content">
+            <div class="stretch-modal-icon">🤔</div>
+            <h3 class="stretch-modal-title">Are you sure?</h3>
+            <p class="stretch-modal-message">
+                You've only done ${stretchesViewed} out of 10 stretches.
+                To earn an activity point, you need to do at least 3 stretches.
+                <br><br>
+                <strong>Keep going for that wellness boost!</strong>
+            </p>
+            <div class="stretch-modal-buttons">
+                <button class="stretch-btn stretch-btn-primary" id="stretch-continue">Continue Stretching</button>
+                <button class="stretch-btn stretch-btn-secondary" id="stretch-finish-anyway">Finish Anyway</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Add event listeners
+    document.getElementById('stretch-continue').addEventListener('click', () => {
+        modal.remove();
+    });
+
+    document.getElementById('stretch-finish-anyway').addEventListener('click', () => {
+        modal.remove();
+        showView('main');
+    });
+}
+
+function showStretchSuccessModal() {
+    // Create success modal
+    const modal = document.createElement('div');
+    modal.id = 'stretch-success-modal';
+    modal.className = 'stretch-modal-overlay';
+    modal.innerHTML = `
+        <div class="stretch-modal-content">
+            <div class="stretch-modal-icon">🎉</div>
+            <h3 class="stretch-modal-title">Great Job!</h3>
+            <p class="stretch-modal-message">
+                You completed ${stretchesViewed} stretches and earned yourself an activity point!
+                <br><br>
+                Your wellness journey is growing stronger! 🌱
+            </p>
+            <div class="activity-reward stretch-reward">
+                <div class="reward-icon">🌱</div>
+                <p class="reward-text">+1 Activity Point Earned!</p>
+            </div>
+            <div class="stretch-modal-buttons">
+                <button class="stretch-btn stretch-btn-primary" id="stretch-celebrate">Awesome!</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Award activity point
+    completeActivity();
+
+    // Record stretch activity - count as 1 session, not individual stretches
+    recordActivity('stretches', { timestamp: Date.now(), count: 1 });
+
+    // Add event listener
+    document.getElementById('stretch-celebrate').addEventListener('click', () => {
+        modal.remove();
+        showView('main');
+    });
+}
+
+function handleBreathingCompletion() {
+    if (breathingCyclesCompleted >= 3) {
+        // Show success modal with activity point celebration
+        showBreathingSuccessModal();
+    } else {
+        // Show confirmation modal asking if they really want to stop
+        showBreathingConfirmationModal();
+    }
+}
+
+function showBreathingConfirmationModal() {
+    // Create confirmation modal
+    const modal = document.createElement('div');
+    modal.id = 'breathing-confirmation-modal';
+    modal.className = 'stretch-modal-overlay';
+    modal.innerHTML = `
+        <div class="stretch-modal-content">
+            <div class="stretch-modal-icon">🧘</div>
+            <h3 class="stretch-modal-title">Almost There!</h3>
+            <p class="stretch-modal-message">
+                You've completed ${breathingCyclesCompleted} breathing cycles.
+                To earn an activity point, you need to complete at least 3 full cycles.
+                <br><br>
+                <strong>Just a few more deep breaths for that wellness boost!</strong>
+            </p>
+            <div class="stretch-modal-buttons">
+                <button class="stretch-btn stretch-btn-primary" id="breathing-continue">Continue Breathing</button>
+                <button class="stretch-btn stretch-btn-secondary" id="breathing-finish-anyway">Finish Anyway</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Add event listeners
+    document.getElementById('breathing-continue').addEventListener('click', () => {
+        modal.remove();
+    });
+
+    document.getElementById('breathing-finish-anyway').addEventListener('click', () => {
+        modal.remove();
+        showView('main');
+    });
+}
+
+function showBreathingSuccessModal() {
+    // Create success modal
+    const modal = document.createElement('div');
+    modal.id = 'breathing-success-modal';
+    modal.className = 'stretch-modal-overlay';
+    modal.innerHTML = `
+        <div class="stretch-modal-content">
+            <div class="stretch-modal-icon">🌬️</div>
+            <h3 class="stretch-modal-title">Peace Achieved!</h3>
+            <p class="stretch-modal-message">
+                You completed ${breathingCyclesCompleted} breathing cycles and earned an activity point!
+                <br><br>
+                Your mind is calmer and your wellness garden grows! 🧘‍♀️
+            </p>
+            <div class="activity-reward stretch-reward">
+                <div class="reward-icon">🌱</div>
+                <p class="reward-text">+1 Activity Point Earned!</p>
+            </div>
+            <div class="stretch-modal-buttons">
+                <button class="stretch-btn stretch-btn-primary" id="breathing-celebrate">Namaste!</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Award activity point
+    completeActivity();
+
+    // Record breathing activity - count as 1 session, not individual cycles
+    recordActivity('breathing', { timestamp: Date.now(), count: 1 });
+
+    // Add event listener
+    document.getElementById('breathing-celebrate').addEventListener('click', () => {
+        modal.remove();
+        showView('main');
+    });
 }
 
 function displayStretch(index) {
@@ -303,6 +567,7 @@ function displayStretch(index) {
     if (dom.stretchNext) dom.stretchNext.disabled = (index === stretches.length - 1);
 
     currentStretchIndex = index;
+    stretchesViewed = Math.max(stretchesViewed, index + 1); // Track highest stretch viewed
 }
 
 // --- Breathing Animation ---
@@ -360,6 +625,12 @@ function startBreathingSession() {
         // Set timeout for next step in sequence
         sequenceIndex++;
         breathingInterval = setTimeout(runSequence, step.duration);
+
+        // Track completed cycles (each full sequence of 4 steps = 1 cycle)
+        if (sequenceIndex % 4 === 0) {
+            breathingCyclesCompleted++;
+            console.log(`Breathing cycle ${breathingCyclesCompleted} completed`);
+        }
     }
 
     // Initial state before starting animation
@@ -1138,6 +1409,53 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    // Setup Header Menu Button
+    const menuBtn = document.getElementById('menu-btn');
+    const headerMenu = document.getElementById('header-menu');
+
+    if (menuBtn && headerMenu) {
+        menuBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            headerMenu.classList.toggle('hidden');
+        });
+
+        // Close menu when clicking outside
+        document.addEventListener('click', (e) => {
+            if (!headerMenu.contains(e.target) && e.target !== menuBtn) {
+                headerMenu.classList.add('hidden');
+            }
+        });
+    }
+
+    // Setup Header Menu Items
+    const menuAbout = document.getElementById('menu-about');
+    const menuActivityHistory = document.getElementById('menu-activity-history');
+    const menuSettings = document.getElementById('menu-settings');
+
+    if (menuAbout) {
+        menuAbout.addEventListener('click', () => {
+            headerMenu.classList.add('hidden');
+            showView('about');
+        });
+    }
+
+    if (menuActivityHistory) {
+        menuActivityHistory.addEventListener('click', () => {
+            headerMenu.classList.add('hidden');
+            showView('activity-history');
+            loadActivityHistory();
+        });
+    }
+
+    if (menuSettings) {
+        menuSettings.addEventListener('click', () => {
+            headerMenu.classList.add('hidden');
+            // For now, settings can just show an alert or navigate to a settings view
+            // Since there's no settings view, we'll show an alert
+            alert('Settings functionality coming soon!');
+        });
+    }
+
     // Setup Timer Listeners
     if (dom.timerStartBtn) dom.timerStartBtn.addEventListener('click', startTimer);
     if (dom.timerStopBtn) dom.timerStopBtn.addEventListener('click', stopTimer);
@@ -1145,8 +1463,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Setup Stretches Listeners
     if (dom.stretchDoneBtn) dom.stretchDoneBtn.addEventListener('click', () => {
-        completeActivity();
-        showView('main');
+        handleStretchCompletion();
     });
 
     if (dom.stretchNext) dom.stretchNext.addEventListener('click', () => {
@@ -1165,8 +1482,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const breathingFeelingBetterBtn = document.getElementById('breathing-feeling-better');
     if (breathingFeelingBetterBtn) {
         breathingFeelingBetterBtn.addEventListener('click', () => {
-            completeActivity();
-            showView('main');
+            handleBreathingCompletion();
         });
     }
 
@@ -1277,6 +1593,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+
     // Quote Rotator - Show random quote on extension open
     if (dom.quoteText) {
         updateQuote();
@@ -1318,3 +1635,617 @@ document.addEventListener('DOMContentLoaded', () => {
     // Show main view
     showView('main');
 });
+
+// --- Activity History Functions ---
+
+function recordActivity(type, data) {
+    // Load existing history
+    chrome.storage.local.get('activityHistory', (result) => {
+        const history = result.activityHistory || {
+            workSessions: [],
+            breakSessions: [],
+            stretches: [],
+            breathing: []
+        };
+
+        // Add new activity based on type
+        switch(type) {
+            case 'work':
+                history.workSessions.push(data);
+                break;
+            case 'break':
+                history.breakSessions.push(data);
+                break;
+            case 'stretches':
+                history.stretches.push(data);
+                break;
+            case 'breathing':
+                history.breathing.push(data);
+                break;
+        }
+
+        // Keep only last 100 entries per category to prevent storage bloat
+        Object.keys(history).forEach(key => {
+            if (history[key].length > 100) {
+                history[key] = history[key].slice(-100);
+            }
+        });
+
+        // Save updated history
+        chrome.storage.local.set({ activityHistory: history });
+    });
+}
+
+function loadActivityHistory() {
+    chrome.storage.local.get('activityHistory', (result) => {
+        const history = result.activityHistory || {
+            workSessions: [],
+            breakSessions: [],
+            stretches: [],
+            breathing: []
+        };
+
+        activityHistory = history;
+
+        // Check if there's any activity data
+        const hasData = history.workSessions.length > 0 ||
+                       history.breakSessions.length > 0 ||
+                       history.stretches.length > 0 ||
+                       history.breathing.length > 0;
+
+        if (!hasData) {
+            showNoDataState();
+        } else {
+            hideNoDataState();
+            populateActivityTables();
+            generateDynamicCharts();
+            setupChartTabs(); // Setup chart tab functionality
+            setupTableTabs(); // Setup table tab functionality
+        }
+    });
+}
+
+function populateActivityTables() {
+    // Populate Work & Break table
+    const workBreakTable = document.getElementById('work-break-table').querySelector('tbody');
+    workBreakTable.innerHTML = '';
+
+    const allSessions = [
+        ...activityHistory.workSessions.map(s => ({ ...s, type: 'Work' })),
+        ...activityHistory.breakSessions.map(s => ({ ...s, type: 'Break' }))
+    ].sort((a, b) => b.timestamp - a.timestamp).slice(0, 20); // Last 20 sessions
+
+    allSessions.forEach(session => {
+        const row = document.createElement('tr');
+        const dateObj = new Date(session.timestamp);
+        const date = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const time = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const duration = session.duration ? formatTime(session.duration) : 'N/A';
+        const sessionType = session.type === 'Work' ? 'Work Session' : 'Break Session';
+
+        row.innerHTML = `
+            <td>${date}</td>
+            <td>${time}</td>
+            <td>${sessionType}</td>
+            <td>${duration}</td>
+        `;
+        workBreakTable.appendChild(row);
+    });
+
+    // Populate Stretches table
+    const stretchesTable = document.getElementById('stretches-table').querySelector('tbody');
+    stretchesTable.innerHTML = '';
+
+    activityHistory.stretches.slice(-20).reverse().forEach(stretch => {
+        const row = document.createElement('tr');
+        const dateObj = new Date(stretch.timestamp);
+        const date = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const time = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        row.innerHTML = `
+            <td>${date}</td>
+            <td>${time}</td>
+            <td>${stretch.count || stretchesViewed} stretches</td>
+        `;
+        stretchesTable.appendChild(row);
+    });
+
+    // Populate Breathing table
+    const breathingTable = document.getElementById('breathing-table').querySelector('tbody');
+    breathingTable.innerHTML = '';
+
+    activityHistory.breathing.slice(-20).reverse().forEach(breath => {
+        const row = document.createElement('tr');
+        const dateObj = new Date(breath.timestamp);
+        const date = dateObj.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const time = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+        row.innerHTML = `
+            <td>${date}</td>
+            <td>${time}</td>
+            <td>${breath.count || breathingCyclesCompleted} cycles</td>
+        `;
+        breathingTable.appendChild(row);
+    });
+}
+
+function generateDynamicCharts() {
+    // Create dynamic charts based on actual activity data
+    const weeklyData = generateWeeklyDataFromHistory();
+    const monthlyData = generateMonthlyDataFromHistory();
+
+    // Create SVG-based line charts
+    createWeeklyChart(weeklyData);
+    createMonthlyChart(monthlyData);
+}
+
+function setupChartTabs() {
+    const tabs = document.querySelectorAll('.chart-tab');
+    const chartContainers = document.querySelectorAll('.chart-container');
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Remove active class from all tabs
+            tabs.forEach(t => t.classList.remove('active'));
+            // Add active class to clicked tab
+            tab.classList.add('active');
+
+            // Hide all chart containers
+            chartContainers.forEach(container => container.classList.add('hidden'));
+
+            // Show the corresponding chart container
+            const chartType = tab.getAttribute('data-chart');
+            const targetContainer = document.querySelector(`#${chartType}-chart`).parentElement;
+            if (targetContainer) {
+                targetContainer.classList.remove('hidden');
+            }
+        });
+    });
+}
+
+function setupTableTabs() {
+    const tabs = document.querySelectorAll('.table-tab');
+    const tableCategories = document.querySelectorAll('.history-category');
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            // Remove active class from all tabs
+            tabs.forEach(t => t.classList.remove('active'));
+            // Add active class to clicked tab
+            tab.classList.add('active');
+
+            // Hide all table categories
+            tableCategories.forEach(category => category.classList.add('hidden'));
+
+            // Show the corresponding table category
+            const tableType = tab.getAttribute('data-table');
+            let targetTitle;
+            switch(tableType) {
+                case 'work-break':
+                    targetTitle = 'Work & Break Sessions';
+                    break;
+                case 'stretches':
+                    targetTitle = 'Desk Stretches';
+                    break;
+                case 'breathing':
+                    targetTitle = 'Stress Relief';
+                    break;
+            }
+
+            const categories = document.querySelectorAll('.history-category');
+            categories.forEach(category => {
+                const title = category.querySelector('.category-title');
+                if (title && title.textContent === targetTitle) {
+                    category.classList.remove('hidden');
+                }
+            });
+        });
+    });
+}
+
+function createWeeklyChart(data) {
+    const container = document.getElementById('weekly-chart');
+    if (!container) return;
+
+    // Clear any existing content
+    container.innerHTML = '';
+
+    const ctx = document.createElement('canvas');
+    ctx.width = 280;
+    ctx.height = 160;
+    container.appendChild(ctx);
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.labels,
+            datasets: [
+                {
+                    label: 'Work Sessions',
+                    data: data.work,
+                    borderColor: '#78A193',
+                    backgroundColor: 'rgba(120, 161, 147, 0.1)',
+                    tension: 0.4,
+                    fill: false
+                },
+                {
+                    label: 'Desk Stretches',
+                    data: data.stretches,
+                    borderColor: '#22c55e',
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    tension: 0.4,
+                    fill: false
+                },
+                {
+                    label: 'Stress Relief',
+                    data: data.breathing,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.4,
+                    fill: false
+                }
+            ]
+        },
+        options: {
+            responsive: false,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 15,
+                        font: {
+                            size: 11
+                        }
+                    }
+                },
+                tooltip: {
+                    enabled: true,
+                    backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                    titleColor: '#374151',
+                    bodyColor: '#374151',
+                    borderColor: '#e5e7eb',
+                    borderWidth: 1,
+                    cornerRadius: 6,
+                    displayColors: true,
+                    callbacks: {
+                        title: function(context) {
+                            return context[0].label;
+                        },
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.parsed.y}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: '#e5e7eb'
+                    },
+                    ticks: {
+                        font: {
+                            size: 10
+                        }
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        font: {
+                            size: 10
+                        }
+                    }
+                }
+            },
+            elements: {
+                point: {
+                    radius: 4,
+                    hoverRadius: 6
+                },
+                line: {
+                    borderWidth: 2
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            animation: {
+                duration: 1000,
+                easing: 'easeInOutQuart'
+            }
+        }
+    });
+}
+
+function createMonthlyChart(data) {
+    const container = document.getElementById('monthly-chart');
+    if (!container) return;
+
+    // Clear any existing content
+    container.innerHTML = '';
+
+    const ctx = document.createElement('canvas');
+    ctx.width = 280;
+    ctx.height = 160;
+    container.appendChild(ctx);
+
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: data.labels,
+            datasets: [
+                {
+                    label: 'Work Sessions',
+                    data: data.work,
+                    borderColor: '#78A193',
+                    backgroundColor: 'rgba(120, 161, 147, 0.1)',
+                    tension: 0.4,
+                    fill: false
+                },
+                {
+                    label: 'Desk Stretches',
+                    data: data.stretches,
+                    borderColor: '#22c55e',
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    tension: 0.4,
+                    fill: false
+                },
+                {
+                    label: 'Stress Relief',
+                    data: data.breathing,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.4,
+                    fill: false
+                }
+            ]
+        },
+        options: {
+            responsive: false,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        usePointStyle: true,
+                        padding: 15,
+                        font: {
+                            size: 11
+                        }
+                    }
+                },
+                tooltip: {
+                    enabled: true,
+                    backgroundColor: 'rgba(255, 255, 255, 0.98)',
+                    titleColor: '#374151',
+                    bodyColor: '#374151',
+                    borderColor: '#e5e7eb',
+                    borderWidth: 1,
+                    cornerRadius: 6,
+                    displayColors: true,
+                    callbacks: {
+                        title: function(context) {
+                            return context[0].label;
+                        },
+                        label: function(context) {
+                            return `${context.dataset.label}: ${context.parsed.y}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    grid: {
+                        color: '#e5e7eb'
+                    },
+                    ticks: {
+                        font: {
+                            size: 10
+                        }
+                    }
+                },
+                x: {
+                    grid: {
+                        display: false
+                    },
+                    ticks: {
+                        font: {
+                            size: 10
+                        }
+                    }
+                }
+            },
+            elements: {
+                point: {
+                    radius: 4,
+                    hoverRadius: 6
+                },
+                line: {
+                    borderWidth: 2
+                }
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            },
+            animation: {
+                duration: 1000,
+                easing: 'easeInOutQuart'
+            }
+        }
+    });
+}
+
+function showNoDataState() {
+    const content = document.querySelector('.activity-history-content');
+    if (!content) return;
+
+    // Hide charts and tables
+    const chartsSection = content.querySelector('.charts-section');
+    const tablesSection = content.querySelector('.history-tables');
+
+    if (chartsSection) chartsSection.style.display = 'none';
+    if (tablesSection) tablesSection.style.display = 'none';
+
+    // Show no data message
+    let noDataDiv = content.querySelector('.no-data-message');
+    if (!noDataDiv) {
+        noDataDiv = document.createElement('div');
+        noDataDiv.className = 'no-data-message';
+        noDataDiv.innerHTML = `
+            <div class="no-data-content">
+                <div class="no-data-icon">📊</div>
+                <h3 class="no-data-title">No Activity Data Yet</h3>
+                <p class="no-data-text">
+                    Your wellness journey starts here! Begin building healthy habits by completing activities like work sessions, desk stretches, and breathing exercises.
+                </p>
+                <div class="no-data-actions">
+                    <button class="no-data-btn" onclick="showView('main')">
+                        <span class="material-symbols-outlined">play_arrow</span>
+                        Start Your Wellness Journey
+                    </button>
+                </div>
+                <div class="no-data-tips">
+                    <h4>💡 Quick Tips to Get Started:</h4>
+                    <ul>
+                        <li>Complete a 25-minute work session</li>
+                        <li>Try 3 desk stretches</li>
+                        <li>Practice a breathing exercise</li>
+                    </ul>
+                </div>
+            </div>
+        `;
+        content.appendChild(noDataDiv);
+    }
+    noDataDiv.style.display = 'block';
+}
+
+function hideNoDataState() {
+    const content = document.querySelector('.activity-history-content');
+    if (!content) return;
+
+    // Show charts and tables
+    const chartsSection = content.querySelector('.charts-section');
+    const tablesSection = content.querySelector('.history-tables');
+
+    if (chartsSection) chartsSection.style.display = 'flex';
+    if (tablesSection) tablesSection.style.display = 'flex';
+
+    // Hide no data message
+    const noDataDiv = content.querySelector('.no-data-message');
+    if (noDataDiv) {
+        noDataDiv.style.display = 'none';
+    }
+}
+
+function generateWeeklyDataFromHistory() {
+    const labels = [];
+    const work = [];
+    const stretches = [];
+    const breathing = [];
+
+    // Generate last 7 days
+    for (let i = 6; i >= 0; i--) {
+        const date = new Date();
+        date.setDate(date.getDate() - i);
+        const dateStr = date.toDateString();
+
+        labels.push(date.toLocaleDateString('en-US', { weekday: 'short' }));
+
+        // Count activities for this date
+        const dayWork = activityHistory.workSessions.filter(session =>
+            new Date(session.timestamp).toDateString() === dateStr
+        ).length;
+
+        const dayStretches = activityHistory.stretches.filter(stretch =>
+            new Date(stretch.timestamp).toDateString() === dateStr
+        ).length; // Count sessions, not individual stretches
+
+        const dayBreathing = activityHistory.breathing.filter(breath =>
+            new Date(breath.timestamp).toDateString() === dateStr
+        ).length; // Count sessions, not individual cycles
+
+        work.push(dayWork);
+        stretches.push(dayStretches);
+        breathing.push(dayBreathing);
+    }
+
+    return { labels, work, stretches, breathing };
+}
+
+function generateMonthlyDataFromHistory() {
+    const labels = [];
+    const work = [];
+    const stretches = [];
+    const breathing = [];
+
+    // Debug: Log current activity history
+    console.log('Current activity history:', activityHistory);
+
+    // Generate last 4 weeks
+    for (let i = 3; i >= 0; i--) {
+        const weekStart = new Date();
+        weekStart.setDate(weekStart.getDate() - (i * 7));
+        // Set to start of day for weekStart
+        weekStart.setHours(0, 0, 0, 0);
+
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        // Set to end of day for weekEnd
+        weekEnd.setHours(23, 59, 59, 999);
+
+        const startMonth = weekStart.toLocaleDateString('en-US', { month: 'short' });
+        const endMonth = weekEnd.toLocaleDateString('en-US', { month: 'short' });
+        const startDay = weekStart.getDate();
+        const endDay = weekEnd.getDate();
+
+        if (startMonth === endMonth) {
+            labels.push(`${startMonth} ${startDay}-${endDay}`);
+        } else {
+            labels.push(`${startMonth} ${startDay}-${endMonth} ${endDay}`);
+        }
+
+        // Debug: Log date ranges
+        console.log(`Week ${4-i} range:`, weekStart.toISOString(), 'to', weekEnd.toISOString());
+
+        // Count activities for this week
+        const weekWork = activityHistory.workSessions.filter(session => {
+            const sessionDate = new Date(session.timestamp);
+            const isInRange = sessionDate >= weekStart && sessionDate <= weekEnd;
+            console.log('Work session:', sessionDate.toISOString(), 'vs range:', weekStart.toISOString(), '-', weekEnd.toISOString(), 'in range:', isInRange);
+            return isInRange;
+        }).length;
+
+        const weekStretches = activityHistory.stretches.filter(stretch => {
+            const stretchDate = new Date(stretch.timestamp);
+            const isInRange = stretchDate >= weekStart && stretchDate <= weekEnd;
+            console.log('Stretch:', stretchDate.toISOString(), 'vs range:', weekStart.toISOString(), '-', weekEnd.toISOString(), 'in range:', isInRange);
+            return isInRange;
+        }).length; // Count sessions, not individual stretches
+
+        const weekBreathing = activityHistory.breathing.filter(breath => {
+            const breathDate = new Date(breath.timestamp);
+            const isInRange = breathDate >= weekStart && breathDate <= weekEnd;
+            console.log('Breathing:', breathDate.toISOString(), 'vs range:', weekStart.toISOString(), '-', weekEnd.toISOString(), 'in range:', isInRange);
+            return isInRange;
+        }).length; // Count sessions, not individual cycles
+
+        work.push(weekWork);
+        stretches.push(weekStretches);
+        breathing.push(weekBreathing);
+    }
+
+    // Debug: Log the generated data
+    console.log('Generated monthly data:', { labels, work, stretches, breathing });
+
+    return { labels, work, stretches, breathing };
+}

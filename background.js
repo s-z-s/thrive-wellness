@@ -470,60 +470,66 @@ function updateTimerBadge() {
  }
 
 function updateTimer() { /* ... keep ... */
-     if (!timerState.isRunning) { if (timerInterval) clearInterval(timerInterval); timerInterval = null; updateTimerBadge(); return; }
-     timerState.time -= 1;
-     updateTimerBadge(); // Update badge every second
-     sendMessageToPopup({ command: 'updateTimer', time: formatTime(timerState.time), isBreak: timerState.isBreak, isRunning: timerState.isRunning });
-     if (timerState.time <= 0) {
-         //  console.log("Aegis: Timer reached zero.");
-         if (timerInterval) clearInterval(timerInterval); timerInterval = null;
-         timerState.isRunning = false;
-         updateTimerBadge(); // Clear badge
-         // Play alarm sound (only once per completion)
-         if (!alarmPlayed) {
-             playAlarmSound();
-             alarmPlayed = true;
-         }
-         // Show completion notification badge
-         showCompletionBadge();
-         if (timerState.isBreak) {
-             //  console.log("Aegis: Break finished. Showing notification.");
-             showNotification('pomodoro-break-end', "Break Complete!", `Ready to start your ${config.pomodoroWorkMinutes}-minute work session.`);
-             timerState.isBreak = false; timerState.time = timerState.workTime;
-             // Store pending completion for when popup opens
-             pendingTimerCompletion = { isBreak: true };
-             // Try to show overlay immediately if popup is open, otherwise open popup
-             sendMessageToPopup({ command: 'showTimerCompletionOverlay', isBreak: true });
-             // Also try to open popup to show completion
-             try {
-                 chrome.action.openPopup().catch(() => {
-                     // Popup opening failed, but that's ok - notification and badge will show
-                     //  console.log("Aegis: Could not open popup, but notification sent");
-                 });
-             } catch (e) {
-                 //  console.log("Aegis: Popup opening not supported");
-             }
-         } else {
-             //  console.log("Aegis: Work session finished. Showing notification.");
-             showNotification('pomodoro-work-end', "Work Session Complete!", `Great job! Time for a ${config.pomodoroBreakMinutes}-minute break.`);
-             timerState.isBreak = true; timerState.time = timerState.breakTime;
-             // Store pending completion for when popup opens
-             pendingTimerCompletion = { isBreak: false };
-             // Try to show overlay immediately if popup is open, otherwise open popup
-             sendMessageToPopup({ command: 'showTimerCompletionOverlay', isBreak: false });
-             // Also try to open popup to show completion
-             try {
-                 chrome.action.openPopup().catch(() => {
-                     // Popup opening failed, but that's ok - notification and badge will show
-                     //  console.log("Aegis: Could not open popup, but notification sent");
-                 });
-             } catch (e) {
-                 //  console.log("Aegis: Popup opening not supported");
-             }
-         }
-         sendMessageToPopup({ command: 'updateTimer', time: formatTime(timerState.time), isBreak: timerState.isBreak, isRunning: timerState.isRunning });
-     }
- }
+      if (!timerState.isRunning) { if (timerInterval) clearInterval(timerInterval); timerInterval = null; updateTimerBadge(); return; }
+      timerState.time -= 1;
+      updateTimerBadge(); // Update badge every second
+      sendMessageToPopup({ command: 'updateTimer', time: formatTime(timerState.time), isBreak: timerState.isBreak, isRunning: timerState.isRunning });
+      if (timerState.time <= 0) {
+          //  console.log("Aegis: Timer reached zero.");
+          if (timerInterval) clearInterval(timerInterval); timerInterval = null;
+          timerState.isRunning = false;
+          updateTimerBadge(); // Clear badge
+          // Play alarm sound (only once per completion)
+          if (!alarmPlayed) {
+              playAlarmSound();
+              alarmPlayed = true;
+          }
+          // Show completion notification badge
+          showCompletionBadge();
+          if (timerState.isBreak) {
+              //  console.log("Aegis: Break finished. Showing notification.");
+              showNotification('pomodoro-break-end', "Break Complete!", `Ready to start your ${config.pomodoroWorkMinutes}-minute work session.`);
+              timerState.isBreak = false; timerState.time = timerState.workTime;
+              // Store pending completion for when popup opens
+              pendingTimerCompletion = { isBreak: true };
+              // Record break session completion and increment activity count
+              recordActivity('break', { timestamp: Date.now(), duration: timerState.breakTime });
+              incrementActivitiesCompleted();
+              // Try to show overlay immediately if popup is open, otherwise open popup
+              sendMessageToPopup({ command: 'showTimerCompletionOverlay', isBreak: true });
+              // Also try to open popup to show completion
+              try {
+                  chrome.action.openPopup().catch(() => {
+                      // Popup opening failed, but that's ok - notification and badge will show
+                      //  console.log("Aegis: Could not open popup, but notification sent");
+                  });
+              } catch (e) {
+                  //  console.log("Aegis: Popup opening not supported");
+              }
+          } else {
+              //  console.log("Aegis: Work session finished. Showing notification.");
+              showNotification('pomodoro-work-end', "Work Session Complete!", `Great job! Time for a ${config.pomodoroBreakMinutes}-minute break.`);
+              timerState.isBreak = true; timerState.time = timerState.breakTime;
+              // Store pending completion for when popup opens
+              pendingTimerCompletion = { isBreak: false };
+              // Record work session completion and increment activity count
+              recordActivity('work', { timestamp: Date.now(), duration: timerState.workTime });
+              incrementActivitiesCompleted();
+              // Try to show overlay immediately if popup is open, otherwise open popup
+              sendMessageToPopup({ command: 'showTimerCompletionOverlay', isBreak: false });
+              // Also try to open popup to show completion
+              try {
+                  chrome.action.openPopup().catch(() => {
+                      // Popup opening failed, but that's ok - notification and badge will show
+                      //  console.log("Aegis: Could not open popup, but notification sent");
+                  });
+              } catch (e) {
+                  //  console.log("Aegis: Popup opening not supported");
+              }
+          }
+          sendMessageToPopup({ command: 'updateTimer', time: formatTime(timerState.time), isBreak: timerState.isBreak, isRunning: timerState.isRunning });
+      }
+      }
 
 function showCompletionBadge() {
      try {
@@ -559,24 +565,62 @@ function clearCompletionBadge() {
  }
 
 function incrementActivitiesCompleted() {
-     // Get current garden state and increment count
-     chrome.storage.local.get('garden', (data) => {
-         let gardenState = data.garden || { count: 0, level: 0 };
-         gardenState.count++;
-         gardenState.level = Math.min(5, Math.floor(gardenState.count / 5));
+      // Get current garden state and increment count
+      chrome.storage.local.get('garden', (data) => {
+          let gardenState = data.garden || { count: 0, level: 0 };
+          gardenState.count++;
+          gardenState.level = Math.min(5, Math.floor(gardenState.count / 5));
 
-         // Save updated state
-         chrome.storage.local.set({ garden: gardenState }, () => {
-             if (chrome.runtime.lastError) {
-                 console.warn("Aegis: Failed to save garden state:", chrome.runtime.lastError.message);
-             } else {
-                 //  console.log("Aegis: Activities completed incremented to:", gardenState.count);
-                 // Notify popup to update garden display
-                 sendMessageToPopup({ command: 'updateGarden', garden: gardenState });
-             }
-         });
-     });
- }
+          // Save updated state
+          chrome.storage.local.set({ garden: gardenState }, () => {
+              if (chrome.runtime.lastError) {
+                  console.warn("Aegis: Failed to save garden state:", chrome.runtime.lastError.message);
+              } else {
+                  //  console.log("Aegis: Activities completed incremented to:", gardenState.count);
+                  // Notify popup to update garden display
+                  sendMessageToPopup({ command: 'updateGarden', garden: gardenState });
+              }
+          });
+      });
+  }
+
+function recordActivity(type, data) {
+    // Load existing history
+    chrome.storage.local.get('activityHistory', (result) => {
+        const history = result.activityHistory || {
+            workSessions: [],
+            breakSessions: [],
+            stretches: [],
+            breathing: []
+        };
+
+        // Add new activity based on type
+        switch(type) {
+            case 'work':
+                history.workSessions.push(data);
+                break;
+            case 'break':
+                history.breakSessions.push(data);
+                break;
+            case 'stretches':
+                history.stretches.push(data);
+                break;
+            case 'breathing':
+                history.breathing.push(data);
+                break;
+        }
+
+        // Keep only last 100 entries per category to prevent storage bloat
+        Object.keys(history).forEach(key => {
+            if (history[key].length > 100) {
+                history[key] = history[key].slice(-100);
+            }
+        });
+
+        // Save updated history
+        chrome.storage.local.set({ activityHistory: history });
+    });
+}
 
 // --- AI Functions ---
 async function initializeAI() {
@@ -871,23 +915,33 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => { /* ...
             case 'checkPendingTimerCompletion':
                 if (pendingTimerCompletion) {
                     const completion = pendingTimerCompletion;
-                    pendingTimerCompletion = null; // Clear after sending
+                    // Clear immediately when checked to prevent re-showing
+                    pendingTimerCompletion = null;
                     sendResponse({ showOverlay: true, isBreak: completion.isBreak });
                 } else {
                     sendResponse({ showOverlay: false, isBreak: false });
                 }
                 break;
+            case 'clearPendingTimerCompletion':
+                pendingTimerCompletion = null;
+                break;
             case 'startBreakFromOverlay': timerState.isRunning = true; if (!timerInterval) timerInterval = setInterval(updateTimer, 1000); alarmPlayed = false; updateTimerBadge(); clearCompletionBadge();
+                // Clear pending completion state
+                pendingTimerCompletion = null;
                 // Increment activities completed count when user starts work after break
                 incrementActivitiesCompleted();
+                // Don't record work session start - only record completion
                 break;
             case 'skipBreakFromOverlay': timerState.isBreak = false; timerState.time = timerState.workTime; sendMessageToPopup({ command: 'updateTimer', time: formatTime(timerState.time), isBreak: timerState.isBreak, isRunning: timerState.isRunning }); alarmPlayed = false; updateTimerBadge(); clearCompletionBadge();
-                // Increment activities completed count when user skips break
-                incrementActivitiesCompleted();
+                // Clear pending completion state
+                pendingTimerCompletion = null;
+                // Don't increment activities when user skips break - they didn't complete the break
+                // Don't record work session start - only record completion
                 break;
             case 'overlayBreakComplete': timerState.isBreak = false; timerState.time = timerState.workTime; sendMessageToPopup({ command: 'updateTimer', time: formatTime(timerState.time), isBreak: timerState.isBreak, isRunning: timerState.isRunning }); alarmPlayed = false; updateTimerBadge(); clearCompletionBadge();
                 // Increment activities completed count after break completion
                 incrementActivitiesCompleted();
+                // Don't record work session start - only record completion
                 break;
             case 'openStretchesPopup':
                 // Open extension popup and navigate to stretches
