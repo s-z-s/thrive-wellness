@@ -1689,14 +1689,15 @@ function loadActivityHistory() {
 
         // Check if there's any activity data
         const hasData = history.workSessions.length > 0 ||
-                       history.breakSessions.length > 0 ||
-                       history.stretches.length > 0 ||
-                       history.breathing.length > 0;
+                        history.breakSessions.length > 0 ||
+                        history.stretches.length > 0 ||
+                        history.breathing.length > 0;
 
         if (!hasData) {
             showNoDataState();
         } else {
             hideNoDataState();
+            populateTodaysActivities();
             populateActivityTables();
             generateDynamicCharts();
             setupChartTabs(); // Setup chart tab functionality
@@ -2180,6 +2181,33 @@ function generateWeeklyDataFromHistory() {
     }
 
     return { labels, work, stretches, breathing };
+}
+
+function populateTodaysActivities() {
+    const today = new Date();
+    const todayStr = today.toDateString();
+
+    // Count today's activities
+    const todayWorkSessions = activityHistory.workSessions.filter(session =>
+        new Date(session.timestamp).toDateString() === todayStr
+    ).length;
+
+    const todayStretches = activityHistory.stretches.filter(stretch =>
+        new Date(stretch.timestamp).toDateString() === todayStr
+    ).length;
+
+    const todayBreathing = activityHistory.breathing.filter(breath =>
+        new Date(breath.timestamp).toDateString() === todayStr
+    ).length;
+
+    // Update the UI
+    const workElement = document.getElementById('today-work-sessions');
+    const stretchesElement = document.getElementById('today-stretches');
+    const breathingElement = document.getElementById('today-breathing');
+
+    if (workElement) workElement.textContent = todayWorkSessions;
+    if (stretchesElement) stretchesElement.textContent = todayStretches;
+    if (breathingElement) breathingElement.textContent = todayBreathing;
 }
 
 function generateMonthlyDataFromHistory() {

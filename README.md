@@ -45,11 +45,11 @@
        * *Core Logic:* `background.js` (uses `chrome.alarms` for scheduling, `chrome.idle` to check activity state, `LanguageModel` for AI message generation, `chrome.notifications` to display)
        * *Configuration:* `config.js` (notification timing and idle threshold)
        * *Features:* Content-aware suggestions, proactive overlay popups, idle state detection, customizable timing
-   * **Activity History & Analytics:** Comprehensive tracking with charts and detailed activity logs.
-       * *UI Logic:* `ui.js` (tab switching, chart rendering, table population, data visualization)
+   * **Activity History & Analytics:** Comprehensive tracking with today's summary, charts and detailed activity logs.
+       * *UI Logic:* `ui.js` (tab switching, chart rendering, table population, data visualization, today's activities summary)
        * *Data Management:* `background.js` (activity recording, storage management)
        * *Visualization:* Chart.js integration for weekly/monthly trend analysis
-       * *Features:* Work sessions, break sessions, stretch completions, breathing cycles, interactive charts, detailed tables
+       * *Features:* Today's activity summary (work sessions, desk stretches, breathing sessions), work sessions, break sessions, stretch completions, breathing cycles, interactive charts, detailed tables
    * **Completion Popups & Overlays:** Dedicated popup windows and overlays for session completions with action buttons.
        * *Files:* `completion-popup.html`, `completion-popup.js`, `ui.js` (overlay management)
        * *Features:* Timer display, break start/skip options, activity rewards, sound alerts, auto-dismiss
