@@ -5,8 +5,8 @@
 // ** Use 'var' for service worker global scope compatibility with importScripts **
 var config = {
     // Pomodoro Timer Settings (in minutes)
-    pomodoroWorkMinutes: 0.1,    // WORK SESSION: Default duration for a work session (0.2 = 12 seconds for testing)
-    pomodoroBreakMinutes: 0.1,     // BREAK SESSION: Default duration for a break session (0.1 = 6 seconds for testing)
+    pomodoroWorkMinutes: 0.1,     // WORK SESSION: Default duration for a work session (25 minutes)
+    pomodoroBreakMinutes: 5,     // BREAK SESSION: Default duration for a break session (5 minutes)
 
     // Break Timer Modal Settings
     breakTimerEnabled: true,     // Enable/disable break timer modal
@@ -14,9 +14,22 @@ var config = {
     breakTimerShowModal: true,   // Show modal overlay during break
 
     // Proactive Notification Settings
-    notificationInitialDelayMinutes: 0.1, // How long to wait after browser start/install (Low for testing)
-    notificationPeriodMinutes: 0.1,       // How often to check (Low for testing)
-    notificationIdleThresholdMinutes: 0.25, // How many minutes of *continuous* inactivity counts as "idle" (Minimum 15 seconds)
+    notificationInitialDelayMinutes: 30,  // How long to wait after browser start/install (30 minutes)
+    notificationPeriodMinutes: 30,        // How often to check (30 minutes) for proactive activity
+    notificationIdleThresholdMinutes: 15, // How many minutes of *continuous* inactivity counts as "idle"
+
+    // AI Content Extraction Settings
+    minContentLength: 50,        // Minimum content length required for AI analysis
+    maxContentLength: 1000,      // Maximum content length to send to AI (to avoid token limits)
+    contentFallbackThreshold: 150, // Minimum content length from main element before falling back to body
+
+    // Overlay Settings
+    overlayAutoDismissSeconds: 8, // How long overlay stays visible before auto-dismissing
+
+    // Settings Defaults (for UI initialization)
+    defaultWellnessReminders: true,      // Default state for wellness reminders
+    defaultWorkSessionReminder: true,    // Default state for work session reminder button
+    defaultSoundNotifications: true,     // Default state for sound notifications
 };
 // Log to confirm execution
 //  console.log("Aegis: config.js executed, var config declared.");

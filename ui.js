@@ -186,11 +186,11 @@ function showView(viewName) {
 
     // Stop breathing session if navigating away
     if (currentView === 'breathing' && viewName !== 'breathing') {
-          stopBreathingSession();
+           stopBreathingSession();
     }
-      // Start breathing session automatically when navigating TO it
-      if (viewName === 'breathing' && currentView !== 'breathing') {
-          startBreathingSession();
+       // Start breathing session automatically when navigating TO it
+       if (viewName === 'breathing' && currentView !== 'breathing') {
+           startBreathingSession();
     }
 
     // Load initial suggestions when navigating TO chat
@@ -214,6 +214,12 @@ function showView(viewName) {
     if (viewName === 'activity-history' && currentView !== 'activity-history') {
         // Activity history is loaded when the menu item is clicked
         loadActivityHistory();
+    }
+
+    // Initialize settings view when navigating TO settings
+    if (viewName === 'settings' && currentView !== 'settings') {
+        settingsLoaded = false; // Reset flag when navigating to settings
+        loadSettings(); // Load current settings when opening settings view
     }
 
     // Update current view AFTER all checks
@@ -1374,11 +1380,36 @@ function updateSuggestionButtons(suggestions) {
     dom.chatSuggestions.style.opacity = '1';
 }
 
+// --- Settings State ---
+let currentSettings = {
+    wellnessReminders: true,
+    workSessionReminder: true,
+    soundNotifications: true
+};
+
+// --- Settings State Management ---
+let settingsLoaded = false;
+
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
-    // DOMContentLoaded fired
+    // ** NEW LOGIC: Check for a target view from notification **
+    // 1. Always cache elements first
     cacheDOMElements();
 
+    // 2. Check for deep link
+    chrome.storage.local.get('thrive-target-view', (data) => {
+        const targetView = data['thrive-target-view'];
+        if (targetView === 'stretches' || targetView === 'breathing') {
+            console.log("Thrive Wellness: Deep linking to view:", targetView);
+            showView(targetView);
+            chrome.storage.local.remove('thrive-target-view');
+        } else {
+            showView('main'); // Default to main view
+        }
+    });
+
+    // 3. Setup all listeners and other init logic
+    // (Setup Navigation, Setup Timer Listeners, Setup Chat, etc...)
     // Safety Checks
     if (!dom.timerStartBtn || !dom.timerStopBtn || !dom.timerResetBtn) console.error("Timer buttons missing!");
     if (!dom.breathingCircle || !dom.breathingText || !dom.breathingTimer) console.error("Breathing elements missing!");
@@ -1450,9 +1481,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (menuSettings) {
         menuSettings.addEventListener('click', () => {
             headerMenu.classList.add('hidden');
-            // For now, settings can just show an alert or navigate to a settings view
-            // Since there's no settings view, we'll show an alert
-            alert('Settings functionality coming soon!');
+            showView('settings');
+            loadSettings(); // Load current settings when opening settings view
         });
     }
 
@@ -1572,17 +1602,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Check AI Availability
     chrome.runtime.sendMessage({ command: 'checkAI' }, (response) => {
-          if (chrome.runtime.lastError) {
-              console.error("Could not check AI status:", chrome.runtime.lastError.message);
+           if (chrome.runtime.lastError) {
+               console.error("Could not check AI status:", chrome.runtime.lastError.message);
+               if (dom.chatNavButton) dom.chatNavButton.classList.add('hidden');
+           } else if (response?.aiModelAvailable) { // Check response exists
+              aiModelReady = true;
+             if (dom.chatNavButton) dom.chatNavButton.classList.remove('hidden');
+          } else {
+              aiModelReady = false;
               if (dom.chatNavButton) dom.chatNavButton.classList.add('hidden');
-          } else if (response?.aiModelAvailable) { // Check response exists
-             aiModelReady = true;
-            if (dom.chatNavButton) dom.chatNavButton.classList.remove('hidden');
-         } else {
-             aiModelReady = false;
-             if (dom.chatNavButton) dom.chatNavButton.classList.add('hidden');
-         }
-     });
+          }
+      });
 
     // Check if popup was opened due to timer completion
     chrome.runtime.sendMessage({ command: 'checkPendingTimerCompletion' }, (response) => {
@@ -1629,11 +1659,14 @@ document.addEventListener('DOMContentLoaded', () => {
         showView('stretches');
     }
 
+    // Setup Settings Listeners
+    setupSettingsListeners();
+
     // Show thinking indicator when waiting for AI response
     // This will be called when the user submits a message
 
     // Show main view
-    showView('main');
+    // showView('main'); // Moved to storage check above
 });
 
 // --- Activity History Functions ---
@@ -2208,6 +2241,128 @@ function populateTodaysActivities() {
     if (workElement) workElement.textContent = todayWorkSessions;
     if (stretchesElement) stretchesElement.textContent = todayStretches;
     if (breathingElement) breathingElement.textContent = todayBreathing;
+}
+
+// --- Settings Functions ---
+function loadSettings() {
+    if (settingsLoaded) return; // Prevent multiple loads
+
+    // Use chrome.storage directly instead of messaging to avoid port issues
+    chrome.storage.local.get('thrive-settings', (data) => {
+        settingsLoaded = true; // Mark as loaded
+
+        if (chrome.runtime.lastError) {
+            console.warn("Thrive Wellness: Could not load settings from storage:", chrome.runtime.lastError.message);
+            // Use defaults from config if we can't load
+            currentSettings = {
+                wellnessReminders: config.defaultWellnessReminders,
+                workSessionReminder: config.defaultWorkSessionReminder,
+                soundNotifications: config.defaultSoundNotifications
+            };
+            updateSettingsUI();
+            console.log("Thrive Wellness: Using default settings due to storage error:", currentSettings);
+            return;
+        }
+
+        if (data['thrive-settings']) {
+            currentSettings = data['thrive-settings'];
+            console.log("Thrive Wellness: Settings loaded from storage:", currentSettings);
+        } else {
+            // No settings in storage, use defaults from config
+            currentSettings = {
+                wellnessReminders: config.defaultWellnessReminders,
+                workSessionReminder: config.defaultWorkSessionReminder,
+                soundNotifications: config.defaultSoundNotifications
+            };
+            console.log("Thrive Wellness: No saved settings found, using defaults:", currentSettings);
+        }
+
+        updateSettingsUI();
+    });
+}
+
+function saveSettings() {
+    // Use chrome.storage directly instead of messaging to avoid port issues
+    chrome.storage.local.set({ 'thrive-settings': currentSettings }, () => {
+        if (chrome.runtime.lastError) {
+            console.warn("Thrive Wellness: Could not save settings to storage:", chrome.runtime.lastError.message);
+            return;
+        }
+        console.log("Thrive Wellness: Settings saved successfully to storage");
+
+        // Notify background script of settings change (ignore port errors)
+        setTimeout(() => {
+            try {
+                chrome.runtime.sendMessage({ command: 'saveSettings', settings: currentSettings }, (response) => {
+                    if (chrome.runtime.lastError) {
+                        // Ignore port closed errors - settings were saved successfully
+                        return;
+                    }
+                    // Settings applied in background
+                });
+            } catch (e) {
+                // Ignore all messaging errors - settings were saved successfully
+            }
+        }, 100); // Small delay to ensure storage operation completes
+    });
+}
+
+function updateSettingsUI() {
+    // Update toggle switches
+    const wellnessToggle = document.getElementById('wellness-reminders-toggle');
+    const workSessionToggle = document.getElementById('work-session-reminder-toggle');
+    const soundToggle = document.getElementById('sound-notifications-toggle');
+    const workSessionSetting = document.getElementById('work-session-reminder-setting');
+
+    if (wellnessToggle) wellnessToggle.checked = currentSettings.wellnessReminders;
+    if (workSessionToggle) workSessionToggle.checked = currentSettings.workSessionReminder;
+    if (soundToggle) soundToggle.checked = currentSettings.soundNotifications;
+
+    // Show/hide work session reminder setting based on wellness reminders
+    if (workSessionSetting) {
+        if (currentSettings.wellnessReminders) {
+            workSessionSetting.style.display = 'block';
+        } else {
+            workSessionSetting.style.display = 'none';
+        }
+    }
+}
+
+function setupSettingsListeners() {
+    const wellnessToggle = document.getElementById('wellness-reminders-toggle');
+    const workSessionToggle = document.getElementById('work-session-reminder-toggle');
+    const soundToggle = document.getElementById('sound-notifications-toggle');
+
+    if (wellnessToggle) {
+        wellnessToggle.addEventListener('change', (e) => {
+            currentSettings.wellnessReminders = e.target.checked;
+            // If wellness reminders are enabled, also enable work session reminder by default
+            if (e.target.checked) {
+                currentSettings.workSessionReminder = true;
+                if (workSessionToggle) workSessionToggle.checked = true;
+            } else {
+                // If wellness reminders are disabled, also disable work session reminder
+                currentSettings.workSessionReminder = false;
+                if (workSessionToggle) workSessionToggle.checked = false;
+            }
+            updateSettingsUI(); // Update UI to show/hide work session setting
+            saveSettings();
+        });
+    }
+
+    if (workSessionToggle) {
+        workSessionToggle.addEventListener('change', (e) => {
+            currentSettings.workSessionReminder = e.target.checked;
+            saveSettings();
+        });
+    }
+
+    if (soundToggle) {
+        soundToggle.addEventListener('change', (e) => {
+            currentSettings.soundNotifications = e.target.checked;
+            saveSettings();
+        });
+    }
 }
 
 function generateMonthlyDataFromHistory() {

@@ -49,11 +49,55 @@ let alarmPlayed = false;
 let aiSession = null;
 let aiModelReady = false;
 
+// --- Settings State ---
+let settings = {
+    wellnessReminders: config.defaultWellnessReminders,
+    workSessionReminder: config.defaultWorkSessionReminder,
+    soundNotifications: config.defaultSoundNotifications
+};
+
 // --- Utility Functions ---
 function formatTime(seconds) { /* ... keep ... */
      const m = Math.floor(seconds / 60); const s = seconds % 60;
      return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
  }
+
+// --- Settings Functions ---
+function applySettings(newSettings) {
+    settings = { ...settings, ...newSettings };
+    console.log("Thrive Wellness: Applied settings:", settings);
+
+    // Apply wellness reminders setting
+    if (settings.wellnessReminders) {
+        // Ensure alarm is set
+        chrome.alarms.get('proactiveNotification', (alarm) => {
+            if (!alarm) {
+                chrome.alarms.create('proactiveNotification', {
+                    delayInMinutes: config.notificationInitialDelayMinutes,
+                    periodInMinutes: config.notificationPeriodMinutes
+                });
+                console.log("Thrive Wellness: Wellness reminders enabled - alarm created");
+            }
+        });
+    } else {
+        // Clear alarm if reminders are disabled
+        chrome.alarms.clear('proactiveNotification');
+        console.log("Thrive Wellness: Wellness reminders disabled - alarm cleared");
+    }
+}
+
+function loadSettings() {
+    chrome.storage.local.get('thrive-settings', (data) => {
+        if (data['thrive-settings']) {
+            settings = { ...settings, ...data['thrive-settings'] };
+            applySettings(settings);
+            console.log("Thrive Wellness: Settings loaded from storage:", settings);
+        } else {
+            // First time - apply defaults
+            applySettings(settings);
+        }
+    });
+}
 function sendMessageToPopup(message) { /* ... keep ... */
      chrome.runtime.sendMessage(message, (response) => {
          if (chrome.runtime.lastError && chrome.runtime.lastError.message !== "The message port closed before a response was received.") {
@@ -87,45 +131,51 @@ function showNotification(id, title, message) { /* ... keep ... */
      chrome.notifications.create(id, { type: 'basic', iconUrl: 'icons/icon128.png', title: title, message: message, priority: 2 });
  }
 async function playAlarmSound() {
-     //  console.log("Aegis: Attempting to play alarm sound via offscreen document...");
+      // Check settings before playing sound
+      if (!settings.soundNotifications) {
+          console.log("Thrive Wellness: Sound notifications disabled, skipping alarm sound");
+          return;
+      }
 
-     try {
-         // Create offscreen document if it doesn't exist
-         const existingContexts = await chrome.runtime.getContexts({
-             contextTypes: ['OFFSCREEN_DOCUMENT']
-         });
+      //  console.log("Aegis: Attempting to play alarm sound via offscreen document...");
 
-         let offscreenDocument = existingContexts.find(c => c.documentUrl?.endsWith('offscreen.html'));
+      try {
+          // Create offscreen document if it doesn't exist
+          const existingContexts = await chrome.runtime.getContexts({
+              contextTypes: ['OFFSCREEN_DOCUMENT']
+          });
 
-         if (!offscreenDocument) {
-             //  console.log("Aegis: Creating offscreen document for audio playback");
-             await chrome.offscreen.createDocument({
-                 url: 'offscreen.html',
-                 reasons: ['AUDIO_PLAYBACK'],
-                 justification: 'Play alarm sound when Pomodoro timer completes'
-             });
-             //  console.log("Aegis: Offscreen document created");
-         }
+          let offscreenDocument = existingContexts.find(c => c.documentUrl?.endsWith('offscreen.html'));
 
-         // Send message to offscreen document to play audio
-         const response = await chrome.runtime.sendMessage({
-             action: 'playAlarm'
-         });
+          if (!offscreenDocument) {
+              //  console.log("Aegis: Creating offscreen document for audio playback");
+              await chrome.offscreen.createDocument({
+                  url: 'offscreen.html',
+                  reasons: ['AUDIO_PLAYBACK'],
+                  justification: 'Play alarm sound when Pomodoro timer completes'
+              });
+              //  console.log("Aegis: Offscreen document created");
+          }
 
-         if (response?.success) {
-             //  console.log("Aegis: Alarm played via offscreen document");
-         } else {
-             console.warn("Aegis: Offscreen document failed to play alarm");
-             // Fallback to system beep
-             playSystemBeep();
-         }
+          // Send message to offscreen document to play audio
+          const response = await chrome.runtime.sendMessage({
+              action: 'playAlarm'
+          });
 
-     } catch (e) {
-         console.warn("Aegis: Offscreen document audio failed:", e);
-         // Fallback to system beep
-         playSystemBeep();
-     }
- }
+          if (response?.success) {
+              //  console.log("Aegis: Alarm played via offscreen document");
+          } else {
+              console.warn("Aegis: Offscreen document failed to play alarm");
+              // Fallback to system beep
+              playSystemBeep();
+          }
+
+      } catch (e) {
+          console.warn("Aegis: Offscreen document audio failed:", e);
+          // Fallback to system beep
+          playSystemBeep();
+      }
+  }
 
 function playGeneratedBeep() {
      //  console.log("Aegis: Playing generated beep as fallback");
@@ -259,179 +309,154 @@ function showProactivePopupOverlay(title, message) {
      });
  }
 
-function injectProactiveOverlay(title, message) {
-     // This function runs in the context of the webpage
-     const overlay = document.createElement('div');
-     overlay.id = 'aegis-proactive-overlay';
-     overlay.innerHTML = `
-         <div class="aegis-overlay-content">
-             <div class="aegis-overlay-icon">
-                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                     <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
-                 </svg>
-             </div>
-             <div class="aegis-overlay-text">
-                 <h4>${title}</h4>
-                 <p>${message}</p>
-                 <button class="aegis-overlay-stretches-btn">
-                     View more stretches
-                 </button>
-             </div>
-             <button class="aegis-overlay-dismiss">
-                 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
-                     <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
-                 </svg>
-             </button>
-         </div>
-     `;
+function injectProactiveOverlay(title, message, aiAction, showWorkSessionButton) {
+    // This function runs in the context of the webpage
 
-     // Add styles
-     const style = document.createElement('style');
-     style.textContent = `
-         #aegis-proactive-overlay {
-             position: fixed;
-             bottom: 20px;
-             right: 20px;
-             max-width: 350px;
-             z-index: 2147483647;
-             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-             animation: aegisSlideIn 0.3s ease-out;
-             pointer-events: auto;
-         }
+    // Remove any existing overlay first
+    const existing = document.getElementById('thrive-proactive-overlay');
+    if (existing) existing.remove();
 
-         @keyframes aegisSlideIn {
-             from { opacity: 0; transform: translateX(100%); }
-             to { opacity: 1; transform: translateX(0); }
-         }
+    // --- 1. Create AI Action Button HTML ---
+    let aiButtonHTML = '';
+    if (aiAction === 'stretches') {
+        aiButtonHTML = `<button class="thrive-overlay-action-btn stretches" data-action="stretches">
+                          View Stretches
+                        </button>`;
+    } else if (aiAction === 'breathing') {
+        aiButtonHTML = `<button class="thrive-overlay-action-btn stretches" data-action="breathing">
+                          Guided Breathing
+                        </button>`;
+    }
 
-         .aegis-overlay-content {
-             background-color: #ffffff;
-             border-radius: 12px;
-             padding: 16px;
-             box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
-             border: 1px solid #e5e7eb;
-             display: flex;
-             align-items: flex-start;
-             gap: 12px;
-             position: relative;
-         }
+    // --- 2. Create Pomodoro Button HTML (if work session reminder is enabled AND timer is NOT running) ---
+    let pomodoroButtonHTML = '';
+    if (showWorkSessionButton) {
+        pomodoroButtonHTML = `<button class="thrive-overlay-action-btn pomodoro-start" data-action="startTimer">
+                                Start Work Session
+                              </button>`;
+    }
 
-         .aegis-overlay-icon {
-             width: 32px;
-             height: 32px;
-             background-color: #78A193;
-             border-radius: 50%;
-             display: flex;
-             align-items: center;
-             justify-content: center;
-             color: white;
-             flex-shrink: 0;
-         }
+    // --- 3. Create Overlay ---
+    const overlay = document.createElement('div');
+    overlay.id = 'thrive-proactive-overlay';
+    overlay.innerHTML = `
+        <div class="thrive-overlay-content">
+            <div class="thrive-overlay-icon">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                   <path fill-rule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5.054a11.955 11.955 0 01-1.439 6.273.957.957 0 00-.024.083l-.001.002.001.002.001.003c.003.006.006.012.01.018a13.481 13.481 0 005.105 5.093 13.442 13.442 0 004.184 1.558.96.96 0 00.08.006l.004.001.005-.001.002-.001a13.4 13.4 0 004.18-1.557 13.475 13.475 0 005.105-5.093c.004-.006.007-.012.01-.018l.001-.003.001-.002-.001-.002a.957.957 0 00-.024-.083A11.955 11.955 0 0117.834 5.054 11.954 11.954 0 0110 1.944zM9 11a1 1 0 112 0v2a1 1 0 11-2 0v-2zM9 8a1 1 0 000 2h.01a1 1 0 100-2H9z" clip-rule="evenodd" />
+                </svg>
+            </div>
+            <div class="thrive-overlay-text">
+                <h4>${title}</h4>
+                <p>${message}</p>
+                <div class="thrive-overlay-buttons">
+                    ${aiButtonHTML}
+                    ${pomodoroButtonHTML}
+                </div>
+            </div>
+            <button class="thrive-overlay-dismiss">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                   <path fill-rule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clip-rule="evenodd" />
+                </svg>
+            </button>
+        </div>
+    `;
 
-         .aegis-overlay-icon svg {
-             width: 16px;
-             height: 16px;
-         }
+    // --- 4. Add Styles (with new button styles) ---
+    const style = document.createElement('style');
+    style.textContent = `
+        #thrive-proactive-overlay {
+            position: fixed; bottom: 20px; right: 20px;
+            max-width: 380px; z-index: 2147483647;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            animation: thriveSlideIn 0.3s ease-out; pointer-events: auto;
+        }
+        @keyframes thriveSlideIn { from { opacity: 0; transform: translateX(100%); } to { opacity: 1; transform: translateX(0); } }
+        .thrive-overlay-content {
+            background-color: #ffffff; border-radius: 12px; padding: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15); border: 1px solid #e5e7eb;
+            display: flex; align-items: flex-start; gap: 12px; position: relative;
+        }
+        .thrive-overlay-icon {
+            width: 32px; height: 32px; background-color: #78A193; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: white; flex-shrink: 0;
+        }
+        .thrive-overlay-icon svg { width: 16px; height: 16px; }
+        .thrive-overlay-text { flex: 1; min-width: 0; }
+        .thrive-overlay-text h4 { margin: 0 0 4px 0; font-size: 14px; font-weight: 600; color: #1f2937; }
+        .thrive-overlay-text p { margin: 0 0 12px 0; font-size: 13px; color: #6b7280; line-height: 1.4; }
 
-         .aegis-overlay-text {
-             flex: 1;
-             min-width: 0;
-         }
+        .thrive-overlay-buttons {
+            display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-start;
+        }
+        .thrive-overlay-action-btn {
+            border: 1px solid #d1d5db; background-color: #f9fafb; color: #374151;
+            padding: 6px 10px; border-radius: 6px; font-size: 12px;
+            font-weight: 500; cursor: pointer; display: inline-flex;
+            align-items: center; gap: 4px; transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        .thrive-overlay-action-btn:hover { background-color: #f3f4f6; border-color: #adb5bd; }
 
-         .aegis-overlay-text h4 {
-             margin: 0 0 4px 0;
-             font-size: 14px;
-             font-weight: 600;
-             color: #1f2937;
-         }
+        /* AI Action Button Styles */
+        .thrive-overlay-action-btn.stretches { border-color: #78A193; color: #78A193; }
+        .thrive-overlay-action-btn.stretches:hover { background-color: #78A193; color: white; }
+        .thrive-overlay-action-btn.breathing { border-color: #60a5fa; color: #60a5fa; }
+        .thrive-overlay-action-btn.breathing:hover { background-color: #60a5fa; color: white; }
 
-         .aegis-overlay-text p {
-             margin: 0 0 8px 0;
-             font-size: 13px;
-             color: #6b7280;
-             line-height: 1.4;
-         }
+        /* New Pomodoro Button Style (Primary) */
+        .thrive-overlay-action-btn.pomodoro-start {
+            background-color: #78A193;
+            border-color: #78A193;
+            color: white;
+        }
+        .thrive-overlay-action-btn.pomodoro-start:hover {
+            background-color: #6a9083; /* A bit darker */
+            border-color: #6a9083;
+        }
 
-         .aegis-overlay-stretches-btn {
-             background: none;
-             border: 1px solid #78A193;
-             color: #78A193;
-             padding: 4px 8px;
-             border-radius: 4px;
-             font-size: 11px;
-             font-weight: 500;
-             cursor: pointer;
-             display: inline-flex;
-             align-items: center;
-             gap: 4px;
-             transition: all 0.2s ease;
-         }
+        .thrive-overlay-dismiss {
+            background: none; border: none; padding: 4px; cursor: pointer; color: #9ca3af;
+            border-radius: 4px; display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; transition: all 0.2s ease;
+        }
+        .thrive-overlay-dismiss:hover { background-color: #f3f4f6; color: #6b7280; }
+        .thrive-overlay-dismiss svg { width: 14px; height: 14px; }
+    `;
 
-         .aegis-overlay-stretches-btn:hover {
-             background-color: #78A193;
-             color: white;
-         }
+    // --- 5. Add to Page and Attach Listeners ---
+    document.head.appendChild(style);
+    document.body.appendChild(overlay);
 
-         .aegis-overlay-dismiss {
-             background: none;
-             border: none;
-             padding: 4px;
-             cursor: pointer;
-             color: #9ca3af;
-             border-radius: 4px;
-             display: flex;
-             align-items: center;
-             justify-content: center;
-             flex-shrink: 0;
-             transition: background-color 0.2s ease, color 0.2s ease;
-         }
+    // Dismiss Listener
+    overlay.querySelector('.thrive-overlay-dismiss')?.addEventListener('click', () => {
+        overlay.remove(); style.remove();
+    });
 
-         .aegis-overlay-dismiss:hover {
-             background-color: #f3f4f6;
-             color: #6b7280;
-         }
+    // Action Button Listeners (using event delegation)
+    overlay.querySelector('.thrive-overlay-buttons')?.addEventListener('click', (e) => {
+        const target = e.target.closest('.thrive-overlay-action-btn');
+        if (!target) return;
 
-         .aegis-overlay-dismiss svg {
-             width: 14px;
-             height: 14px;
-         }
-     `;
+        const action = target.dataset.action;
 
-     // Remove any existing overlay first
-     const existing = document.getElementById('aegis-proactive-overlay');
-     if (existing) {
-         existing.remove();
-     }
+        if (action === 'stretches' || action === 'breathing') {
+            chrome.runtime.sendMessage({ command: 'openAppView', view: action });
+        } else if (action === 'startTimer') {
+            chrome.runtime.sendMessage({ command: 'startTimerFromOverlay' });
+        }
 
-     // Add to page
-     document.head.appendChild(style);
-     document.body.appendChild(overlay);
+        overlay.remove(); style.remove();
+    });
 
-     // Add dismiss functionality
-     const dismissBtn = overlay.querySelector('.aegis-overlay-dismiss');
-     dismissBtn.addEventListener('click', () => {
-         overlay.remove();
-         style.remove();
-     });
-
-     // Add stretches button functionality
-     const stretchesBtn = overlay.querySelector('.aegis-overlay-stretches-btn');
-     stretchesBtn.addEventListener('click', () => {
-         // Since we can't open popup from content script, send message to background to open popup
-         chrome.runtime.sendMessage({ command: 'openStretchesPopup' });
-         // Remove overlay after clicking
-         overlay.remove();
-         style.remove();
-     });
-
-     // Auto-dismiss after 8 seconds
-     setTimeout(() => {
-         if (document.body.contains(overlay)) {
-             overlay.remove();
-             style.remove();
-         }
-     }, 8000);
- }
+    // Auto-dismiss after configured seconds
+    setTimeout(() => {
+        if (document.body.contains(overlay)) {
+            overlay.remove(); style.remove();
+        }
+    }, config.overlayAutoDismissSeconds * 1000);
+}
 function updateTimerBadge() {
      try {
          if (timerState.isRunning) {
@@ -757,144 +782,227 @@ Return only the questions, one per line, no numbering or bullets. Focus on welln
           return [];
       }
   }
+// --- "Robust Parsing" getContextualBreakSuggestion ---
+// This version has improved parsing logic in Step 7.
 
 async function getContextualBreakSuggestion() {
-    //  console.log("Aegis: Getting contextual break suggestion...");
+    console.log("Thrive Wellness: Getting contextual break suggestion...");
+    if (!aiModelReady || !aiSession) {
+        console.warn("Thrive Wellness: AI session not ready");
+        return null;
+    }
 
-     try {
-         // Get active tab with retry logic
-         let tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-         let activeTab = tabs[0];
+    try {
+        // --- 1. Get Active Tab & URL (Same as before) ---
+        let tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+        let activeTab = tabs?.[0];
+        if (!activeTab?.id) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+            tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+            activeTab = tabs?.[0];
+        }
+        if (!activeTab?.id || !activeTab.url) {
+            console.warn("Thrive Wellness: No active tab found");
+            return null;
+        }
+        const url = activeTab.url;
+        const hostname = new URL(url).hostname;
 
-         // Retry once if no tab found (sometimes query returns empty)
-         if (!activeTab || !activeTab.id) {
-            //  console.log("Aegis: No active tab found on first try, retrying...");
-             await new Promise(resolve => setTimeout(resolve, 100)); // Small delay
-             tabs = await chrome.tabs.query({ active: true, currentWindow: true });
-             activeTab = tabs[0];
-         }
+        if (url.startsWith('chrome://') || url.startsWith('chrome-extension://')) {
+            console.log("Thrive Wellness: Skipping internal page");
+            return null;
+        }
 
-         if (!activeTab || !activeTab.id) {
-            //  console.warn("Aegis: No active tab found after retry");
+        // --- 2. Execute Smart Content Script (Same as before) ---
+        let scriptResults;
+        try {
+            scriptResults = await chrome.scripting.executeScript({
+                target: { tabId: activeTab.id },
+                func: getSmartTextContent // Assumes getSmartTextContent is defined
+            });
+        } catch (scriptError) {
+            console.warn("Thrive Wellness: Scripting error:", scriptError.message);
+            return null;
+        }
+
+        // --- 3. Process Result Object (Same as before) ---
+        const resultData = scriptResults?.[0]?.result;
+        if (!resultData) {
+             console.warn("Thrive Wellness: No data from content script.");
              return null;
-         }
+        }
+        const pageTitle = resultData.title || '';
+        const bodyText = resultData.bodyText || '';
+        const truncatedText = bodyText.substring(0, config.maxContentLength);
 
-         // Skip chrome:// pages where scripting is not allowed
-         if (activeTab.url?.startsWith('chrome://') || activeTab.url?.startsWith('chrome-extension://')) {
-             //  console.log("Aegis: Skipping chrome:// or extension page");
-             return null;
-         }
+        if (truncatedText.length < config.minContentLength) {
+            console.log("Thrive Wellness: Cleaned text too short.");
+            return null;
+        }
 
-         // Check if we have permission for this host
-         try {
-             await chrome.scripting.executeScript({
-                 target: { tabId: activeTab.id },
-                 func: () => true // Simple test script
-             });
-         } catch (permError) {
-             //  console.log("Aegis: No permission for this host, using fallback");
-             return null;
-         }
+        // --- 4. Determine URL Hint (Same as before) ---
+        let urlHint = 'Unknown';
+        if (hostname.includes('youtube.com')) urlHint = 'Likely Video Site';
+        else if (hostname.includes('github.com') || hostname.includes('stackoverflow.com')) urlHint = 'Likely Dev Site';
+        else if (hostname.includes('gmail.com') || hostname.includes('outlook.com')) urlHint = 'Likely Communication Site';
+        else if (hostname.includes('docs.google.com') || hostname.includes('notion.so')) urlHint = 'Likely Writing Site';
+        else if (hostname.includes('news') || hostname.includes('reddit.com')) urlHint = 'Likely News/Social Site';
 
-         // Inject content script to get text content
-         const results = await chrome.scripting.executeScript({
-             target: { tabId: activeTab.id },
-             func: getTextContent
-         });
+        // --- 5. "Non-Invasive" AI Prompt (This is perfect, DO NOT CHANGE) ---
+        const aiPrompt = `Analyze the webpage content to infer the user's task *category* (e.g., Coding, Reading, Writing).
+Then, create a single, supportive notification sentence (max 20 words) that:
+1.  Uses a general phrase to *allude* to the task category.
+2.  Suggests a relevant **PHYSICAL micro-break**.
 
-         const pageText = results?.[0]?.result;
-         if (!pageText || typeof pageText !== 'string' || pageText.trim().length === 0) {
-             console.warn("Aegis: No text content retrieved from page");
-             return null;
-         }
+**ALLOWED PHYSICAL ACTIONS:**
+- Eye Breaks (e.g., "refocus your eyes", "look away 20s")
+- Stretches (e.g., "roll your shoulders", "do a wrist stretch")
+- Movement (e.g., "stand up and stretch", "check your posture")
+- Breathing (e.g., "take 3 deep breaths")
 
-         // Truncate text to reasonable length (first 1000 characters)
-         const truncatedText = pageText.substring(0, 1000).trim();
-         if (truncatedText.length < 50) {
-             console.warn("Aegis: Text content too short for analysis");
-             return null;
-         }
+**CRITICAL RULE:**
+Do NOT state the specific task (BAD: "Reviewing emails?", "Planning energy solutions?").
+Instead, use a general phrase *alluding* to the task.
 
-         //  console.log("Aegis: Retrieved text for analysis, length:", truncatedText.length);
+**GOOD EXAMPLES (Allusion + Physical Action):**
+- "Looks like a deep focus session! Time to roll your shoulders."
+- "Lots of typing! How about a quick wrist stretch?"
+- "Engaged in some heavy reading? Don't forget to refocus your eyes."
+- "A good moment to stand up and reset your posture."
 
-         // Get AI suggestion focused on desk job fitness and ergonomics - simplified prompt for notifications
-         const aiPrompt = `You are Aegis, a wellness assistant. Suggest ONE short wellness tip (max 15 words) for desk workers.
+**BAD EXAMPLES (Invasive / Abstract):**
+- "Reviewing communications?" (Invasive)
+- "Planning your energy solutions?" (Invasive)
+- "Take a pause and visualize." (Not a physical action)
 
-Focus on quick actions:
-- Neck/shoulder stretches
-- Eye exercises
-- Wrist movements
-- Standing breaks
-- Breathing exercises
+Page Title: "${pageTitle}"
+URL Type: [${urlHint}]
+Content Snippet:
+"""
+${truncatedText}
+"""
 
-Examples:
-"Roll your shoulders backward slowly"
-"Blink rapidly and look away from screen"
-"Stretch your arms overhead"
+Supportive Notification (using "Allusion + Physical Action" format):`;
 
-Respond with just one short wellness tip:`;
+        // --- 6. Call AI (Same as before) ---
+        console.log("Thrive Wellness: Sending final non-invasive prompt...");
+        let aiResponse;
+        try {
+            aiResponse = await aiSession.prompt(aiPrompt);
+            console.log("Thrive Wellness: Raw AI String response:", JSON.stringify(aiResponse));
+        } catch (aiError) {
+            console.error("Thrive Wellness: AI prompt error:", aiError);
+            return null;
+        }
 
-         const aiResponse = await aiSession.prompt(aiPrompt);
-         //  console.log("Aegis: AI contextual suggestion:", aiResponse);
+        if (!aiResponse || aiResponse.trim().length === 0) {
+            console.warn("Thrive Wellness: AI returned empty string response");
+            return null;
+        }
 
-         // Handle empty or whitespace-only responses
-         if (!aiResponse || aiResponse.trim().length === 0) {
-             console.warn("Aegis: AI returned empty response");
-             return null;
-         }
+        // --- 7. NEW Robust String Parsing Logic ---
+        let suggestion = null;
+        try {
+            const responseLines = aiResponse.trim().split('\n');
+            
+            // Find the *first* non-empty line to use as our suggestion
+            for (const line of responseLines) {
+                const trimmedLine = line.trim();
+                if (trimmedLine.length > 0) {
+                    suggestion = trimmedLine;
+                    break;
+                }
+            }
 
-         // Log the raw response for debugging
-         //  console.log("Aegis: Raw AI response length:", aiResponse.length, "characters");
+            if (!suggestion) {
+                 console.warn("Thrive Wellness: Could not find any valid text in AI response.");
+                 return null;
+            }
 
-         // Extract and validate the AI response
-         let suggestion = aiResponse.trim();
+            // Now, aggressively clean up that first line
+            suggestion = suggestion
+                .replace(/\*\*Notification Sentence:\*\*/i, '') // Old prefix
+                .replace(/^Notification:/i, '')                // **NEW: Catches "Notification:"**
+                .replace(/^Suggestion:/i, '')                  // Other possible prefix
+                .replace(/^Supportive Notification:/i, '')      // Other possible prefix
+                .replace(/^\[Your Output\]/i, '')             // Other possible prefix
+                .replace(/\*\*/g, '')                         // Remove all markdown asterisks
+                .replace(/^["']|["']$/g, '')                 // Remove surrounding quotes
+                .trim();                                      // Final trim
 
-         //  console.log("Aegis: Processing suggestion:", JSON.stringify(suggestion));
+            // Final validation
+            if (suggestion && suggestion.length > 5 && suggestion.length < 150) {
+                console.log(`Thrive Wellness: Parsed final suggestion: "${suggestion}"`);
+                return suggestion; // This will now be "Lots of messages! Take a short stretch..."
+            } else {
+                console.warn("Thrive Wellness: AI string response was invalid after cleanup:", JSON.stringify(suggestion));
+                return null; 
+            }
+        } catch (e) {
+            console.error("Thrive Wellness: Error in parsing AI response:", e);
+            return null;
+        }
 
-         // Remove any markdown or extra formatting
-         suggestion = suggestion.replace(/\*\*.*?\*\*/g, '').trim();
-         suggestion = suggestion.replace(/^["']|["']$/g, '').trim(); // Remove quotes
-
-         //  console.log("Aegis: After cleanup:", JSON.stringify(suggestion));
-
-         // If still empty after cleanup, try to extract from between ** markers
-         if (!suggestion || suggestion.length === 0) {
-             const boldMatch = aiResponse.match(/\*\*(.*?)\*\*/);
-             if (boldMatch && boldMatch[1]) {
-                 suggestion = boldMatch[1].trim();
-                 //  console.log("Aegis: Extracted from bold markers:", JSON.stringify(suggestion));
-             }
-         }
-
-         // If response is too long, try to extract just the main suggestion
-         if (suggestion.length > 50) {
-             // Look for sentence-ending punctuation and take the first complete sentence
-             const sentences = suggestion.split(/[.!?]+/);
-             const firstSentence = sentences[0]?.trim();
-             if (firstSentence && firstSentence.length > 10 && firstSentence.length <= 50) {
-                 suggestion = firstSentence + '.';
-             }
-         }
-
-         // Final validation - accept any non-empty response
-         if (suggestion && suggestion.length >= 1) {
-            //  console.log("Aegis: Using AI contextual suggestion:", suggestion);
-             return suggestion;
-         } else {
-            //  console.warn("Aegis: AI response is empty after processing");
-             return null;
-         }
-
-     } catch (e) {
-        //  console.warn("Aegis: Error getting contextual break suggestion:", e);
-         return null;
-     }
+    } catch (e) {
+        console.error("Thrive Wellness: Error in getContextualBreakSuggestion:", e);
+        return null;
+    }
 }
 
-function getTextContent() {
-     // Function to be injected into the page
-     return document.body.innerText || '';
- }
+// This function is stringified and executed in the target tab's context
+function getSmartTextContent() {
+    let content = '';
+    let title = document.title || '';
+
+    // --- 1. Prioritize Semantic Main Content Elements ---
+    const mainSelectors = ['article', 'main', '[role="main"]', '.post-content', '.entry-content', '#content', '#main-content']; // Add more common selectors
+    let mainElement = null;
+    for (const selector of mainSelectors) {
+        mainElement = document.querySelector(selector);
+        if (mainElement) break;
+    }
+
+    // --- 2. Extract Text & Clean Noise ---
+    const noisySelectors = [
+        'nav', 'footer', 'aside', 'sidebar', // Layout
+        'script', 'style', 'noscript', 'button', 'input', // Non-content elements
+        'header', '.header', '#header', // Headers (often contain nav)
+        '.comments', '#comments', '#disqus_thread', // Comments
+        '.related', '.related-posts', '.sidebar-widget', // Related/Sidebars
+        '.video-suggestions', '#secondary', '#related', // YouTube specific examples
+        '.ad', '[class*="advert"]', '[id*="ad"]' // Ads
+    ];
+
+    if (mainElement) {
+        console.log("Thrive Wellness Content Script: Found main element:", mainElement.tagName);
+        const clonedMain = mainElement.cloneNode(true);
+        noisySelectors.forEach(sel => {
+            clonedMain.querySelectorAll(sel).forEach(el => el.remove());
+        });
+        content = clonedMain.innerText;
+    }
+
+    // --- 3. Fallback to Cleaned Body Text if Main Content is Insufficient ---
+    if (!content || content.replace(/\s+/g, ' ').trim().length < config.contentFallbackThreshold) { // Require more text from main or fallback
+        console.log("Thrive Wellness Content Script: Main content insufficient or not found, falling back to cleaned body.");
+        const clonedBody = document.body.cloneNode(true);
+         noisySelectors.forEach(sel => {
+            clonedBody.querySelectorAll(sel).forEach(el => el.remove());
+        });
+        content = clonedBody.innerText;
+    }
+
+    // --- 4. Basic Text Cleanup ---
+    content = content || ''; // Ensure it's a string
+    content = content.replace(/\s+/g, ' ').trim(); // Replace multiple whitespaces with single space
+
+    console.log("Thrive Wellness Content Script: Extracted text length:", content.length);
+
+    return {
+        title: title,
+        bodyText: content // Return the best text found
+    };
+}
 
 // --- Event Listeners ---
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => { /* ... keep ... */
@@ -978,6 +1086,98 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => { /* ...
                 });
                 return true; // Keep the connection open for async response
               case 'checkAI': if (!aiModelReady) await initializeAI(); sendResponse({ aiModelAvailable: aiModelReady }); break;
+  
+              // ** NEW CASE **
+              case 'openAppView':
+                  // 1. Set the target view in storage
+                  chrome.storage.local.set({ 'thrive-target-view': message.view }, () => {
+                      console.log("Thrive Wellness: Target view set to", message.view);
+                      // 2. Try to open the extension popup directly
+                      try {
+                          chrome.action.openPopup().then(() => {
+                              console.log("Thrive Wellness: Popup opened successfully for view:", message.view);
+                          }).catch((error) => {
+                              console.warn("Thrive Wellness: Failed to open popup:", error.message);
+                              // Fallback: The user will have to click the icon manually
+                              console.log("Thrive Wellness: Please click the extension icon to open.");
+                          });
+                      } catch (e) {
+                          console.warn("Thrive Wellness: Popup opening not supported:", e.message);
+                          console.log("Thrive Wellness: Please click the extension icon to open.");
+                      }
+                  });
+                  // No sendResponse needed for this
+                  break;
+  
+              // ** NEW CASE **
+              case 'startTimerFromOverlay':
+                  console.log("Thrive Wellness: Starting timer from overlay click.");
+                  // 1. Reset timer to a fresh work session
+                  timerState.isRunning = false;
+                  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+                  timerState.isBreak = false;
+                  timerState.time = timerState.workTime;
+  
+                  // 2. Start the timer
+                  timerState.isRunning = true;
+                  if (!timerInterval) {
+                       timerInterval = setInterval(updateTimer, 1000);
+                  }
+  
+                  // 3. Set storage to open popup to 'main'
+                  chrome.storage.local.set({ 'thrive-target-view': 'main' }, () => {
+                      if (chrome.action.openPopup) {
+                          chrome.action.openPopup(); // Open popup to show the running timer
+                      }
+                  });
+                  break;
+  
+              // ** NEW CASE: Save Settings **
+              case 'saveSettings':
+                  const settings = message.settings;
+                  chrome.storage.local.set({
+                      'thrive-settings': settings
+                  }, () => {
+                      console.log("Thrive Wellness: Settings saved:", settings);
+                      // Apply settings immediately
+                      applySettings(settings);
+                  });
+                  break;
+  
+              // ** NEW CASE: Load Settings **
+              case 'loadSettings':
+                  chrome.storage.local.get('thrive-settings', (data) => {
+                      const settings = data['thrive-settings'] || {
+                          wellnessReminders: true,
+                          workSessionReminder: true,
+                          soundNotifications: true
+                      };
+                      sendResponse({ settings: settings });
+                  });
+                  return true; // Keep connection open for async response
+
+              // ** NEW CASE **
+              case 'startTimerFromOverlay':
+                  console.log("Thrive Wellness: Starting timer from overlay click.");
+                  // 1. Reset timer to a fresh work session
+                  timerState.isRunning = false;
+                  if (timerInterval) { clearInterval(timerInterval); timerInterval = null; }
+                  timerState.isBreak = false;
+                  timerState.time = timerState.workTime;
+
+                  // 2. Start the timer
+                  timerState.isRunning = true;
+                  if (!timerInterval) {
+                       timerInterval = setInterval(updateTimer, 1000);
+                  }
+
+                  // 3. Set storage to open popup to 'main'
+                  chrome.storage.local.set({ 'thrive-target-view': 'main' }, () => {
+                      if (chrome.action.openPopup) {
+                          chrome.action.openPopup(); // Open popup to show the running timer
+                      }
+                  });
+                  break;
         }
     })();
     // Return true only for async operations
@@ -987,92 +1187,127 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => { /* ...
 });
 
 chrome.alarms.onAlarm.addListener(async (alarm) => { /* ... keep ... */
-     if (alarm.name === 'proactiveNotification') {
-        //  console.log("Aegis: Proactive alarm triggered.");
-         if (typeof chrome.idle === 'undefined') { console.error("Aegis: Idle API unavailable."); return; }
-         const idleThresholdSeconds = config.notificationIdleThresholdMinutes * 60;
-         chrome.idle.queryState(idleThresholdSeconds, async (state) => {
-            //  console.log(`Aegis: Idle state (${idleThresholdSeconds}s): ${state}`);
-             if (state === 'active') {
-                 let title = "Friendly Reminder";
-                 let message = "Time for a micro-break! Stretch or look away for a moment.";
+      if (alarm.name === 'proactiveNotification') {
+         // Check if wellness reminders are enabled
+         if (!settings.wellnessReminders) {
+             console.log("Thrive Wellness: Wellness reminders disabled, skipping proactive notification");
+             return;
+         }
 
-                 // Try to get contextual break suggestion
-                 if (aiModelReady && aiSession) {
-                     try {
-                         const contextualSuggestion = await getContextualBreakSuggestion();
-                         if (contextualSuggestion) {
-                             title = "Aegis Wellness";
-                             message = contextualSuggestion;
-                             //  console.log("Aegis: Using AI contextual suggestion:", message);
-                         } else {
-                             //  console.log("Aegis: AI contextual suggestion failed, using fallback");
-                         }
-                     } catch (e) {
-                         console.error("Aegis: Error getting contextual suggestion:", e);
-                        //  console.log("Aegis: Using fallback notification");
-                     }
-                 } else {
-                    //  console.log("Aegis: AI not ready, using fallback notification.");
-                 }
+         //  console.log("Aegis: Proactive alarm triggered.");
+          if (typeof chrome.idle === 'undefined') { console.error("Aegis: Idle API unavailable."); return; }
+          const idleThresholdSeconds = config.notificationIdleThresholdMinutes * 60;
+          chrome.idle.queryState(idleThresholdSeconds, async (state) => {
+             //  console.log(`Aegis: Idle state (${idleThresholdSeconds}s): ${state}`);
+              if (state === 'active') {
+                  // 0. Get the active tab for overlay injection
+                  let tabs = await chrome.tabs.query({ active: true, currentWindow: true });
+                  let activeTab = tabs?.[0];
+                  if (!activeTab?.id) {
+                      console.warn("Thrive Wellness: No active tab found for overlay injection");
+                      return;
+                  }
 
-                //  console.log("Aegis: Showing PROACTIVE notification:", title, message);
-                 showNotification(`proactive-notif-${Date.now()}`, title, message);
+                  // 1. Get the suggestion text (this is your existing, working function)
+                  const suggestionText = await getContextualBreakSuggestion();
 
-                 // Show proactive popup overlay on screen
-                 showProactivePopupOverlay(title, message);
-             } else {
-                 //  console.log("Aegis: User idle/locked, skipping proactive.");
-             }
-         });
-     }
- });
+                  // 2. Set Fallbacks
+                  let title = "Thrive Wellness";
+                  let message = "Time for a micro-break! A quick stretch can help you feel refreshed.";
+                  let action = 'stretches'; // Default to stretches
+
+                  // 3. If AI Text succeeded, use it and get a recommended action
+                  if (suggestionText) {
+                      message = suggestionText; // Use the AI-generated text
+
+                      // 4. SECOND AI CALL: Determine the action
+                      if (aiModelReady && aiSession) {
+                          try {
+                              const actionPrompt = `Based on this wellness suggestion: "${suggestionText}"
+Should the user 'stretches' or 'breathing'?
+Respond ONLY with the single word: 'stretches', 'breathing', or 'none'.`;
+
+                              let actionResponse = await aiSession.prompt(actionPrompt);
+                              actionResponse = actionResponse.trim().toLowerCase();
+
+                              if (actionResponse === 'stretches' || actionResponse === 'breathing') {
+                                  action = actionResponse; // Use 'stretches' or 'breathing'
+                              } else {
+                                  action = 'none'; // AI provided an invalid action
+                              }
+                              console.log("Thrive Wellness: Recommended action:", action);
+                          } catch (e) {
+                              console.error("Thrive Wellness: AI action prompt failed:", e);
+                              action = 'stretches'; // Fallback
+                          }
+                      }
+                  }
+
+                  // 5. Inject the overlay with text, action, AND work session button visibility
+                  try {
+                      await chrome.scripting.executeScript({
+                          target: { tabId: activeTab.id },
+                          func: injectProactiveOverlay,
+                          // Pass all 4 arguments: title, message, action, showWorkSessionButton
+                          args: [title, message, action, !timerState.isRunning && settings.workSessionReminder]
+                      });
+                      console.log("Thrive Wellness: Injected proactive overlay. Action:", action, "ShowWorkSessionButton:", !timerState.isRunning && settings.workSessionReminder);
+                  } catch (e) {
+                      console.warn("Thrive Wellness: Failed to inject overlay script:", e.message);
+                  }
+              } else {
+                  //  console.log("Aegis: User idle/locked, skipping proactive.");
+              }
+          });
+      }
+   });
 
 chrome.runtime.onInstalled.addListener(() => { /* ... keep ... */
-    //  console.log("Aegis installed/updated.");
-    chrome.alarms.create('proactiveNotification', { delayInMinutes: config.notificationInitialDelayMinutes, periodInMinutes: config.notificationPeriodMinutes });
-    //  console.log(`Aegis: Alarm set. Delay: ${config.notificationInitialDelayMinutes}m, Period: ${config.notificationPeriodMinutes}m.`);
-    initializeAI();
-});
+     //  console.log("Aegis installed/updated.");
+     // Only create alarm if wellness reminders are enabled (checked in applySettings)
+     initializeAI();
+     loadSettings(); // Load settings on install
+ });
 chrome.runtime.onStartup.addListener(() => { /* ... keep ... */
-    //  console.log("Aegis starting.");
-     chrome.alarms.get('proactiveNotification', (alarm) => { if (!alarm) { chrome.alarms.create('proactiveNotification', { delayInMinutes: config.notificationInitialDelayMinutes, periodInMinutes: config.notificationPeriodMinutes }); } else { //  console.log("Aegis: Alarm exists."); 
-    } });
-    initializeAI();
-});
+     //  console.log("Aegis starting.");
+     initializeAI();
+     loadSettings(); // Load settings on startup
+ });
 
 // Initial AI check
 //  console.log("Aegis: Service worker started. Init AI...");
 initializeAI();
+loadSettings(); // Load settings on service worker start
 
 // Also initialize AI on startup to ensure it's ready
 chrome.runtime.onStartup.addListener(async () => {
-    //  console.log("Aegis: Browser startup detected, initializing AI...");
-    await initializeAI();
-});
+     //  console.log("Aegis: Browser startup detected, initializing AI...");
+     await initializeAI();
+     loadSettings(); // Load settings on browser startup
+ });
 
 // Force AI initialization after a delay to ensure it's ready
 setTimeout(async () => {
-    //  console.log("Aegis: Delayed AI initialization check...");
-    if (!aiModelReady) {
-        await initializeAI();
-    }
-}, 5000);
+     //  console.log("Aegis: Delayed AI initialization check...");
+     if (!aiModelReady) {
+         await initializeAI();
+     }
+ }, 5000);
 
 // Additional AI initialization attempts for reliability
 setTimeout(async () => {
-    //  console.log("Aegis: Second delayed AI initialization check...");
-    if (!aiModelReady) {
-        await initializeAI();
-    }
-}, 15000);
+     //  console.log("Aegis: Second delayed AI initialization check...");
+     if (!aiModelReady) {
+         await initializeAI();
+     }
+ }, 15000);
 
 setTimeout(async () => {
-    //  console.log("Aegis: Third delayed AI initialization check...");
-    if (!aiModelReady) {
-        await initializeAI();
-    }
-}, 30000);
+     //  console.log("Aegis: Third delayed AI initialization check...");
+     if (!aiModelReady) {
+         await initializeAI();
+     }
+ }, 30000);
 
 // --- Completion Popup Function ---
 function showCompletionPopup(isBreak) {

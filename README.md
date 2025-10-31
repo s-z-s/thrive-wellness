@@ -1,7 +1,7 @@
 # Thrive Wellness - Your AI Wellness Companion (Chrome Extension)
 
-**Version:** 2.0 (Enhanced MVP)
-**Date:** October 28, 2025
+**Version:** 2.1 (Smart Notifications & Settings)
+**Date:** October 31, 2025
 
 ## 1\. Introduction & Vision
 
@@ -26,7 +26,6 @@
    * **Advanced Breathing Helper:** Animated Box Breathing guide with visual feedback, audio cues, and cycle tracking.
        * *UI Logic:* `ui.js` (view switching, starting/stopping animation, updating text/timer, cycle completion)
        * *Animation:* `style.css` (keyframes for circle scaling/color transitions), `ui.js` (4-phase sequence management)
-       * *Audio:* `alarm.wav` (HTML5 audio element for session completion)
        * *Features:* 4-phase breathing cycle (inhale/hold/exhale/hold), automatic progression, activity rewards
    * **Thrive Wellness Coach:** AI-powered chatbot for personalized wellness guidance with markdown formatting.
        * *UI Logic:* `ui.js` (view switching, handling input, displaying messages, follow-up questions, thinking indicators)
@@ -34,17 +33,22 @@
        * *API Dependency:* `LanguageModel` API (built into Chrome Dev with on-device model)
        * *Features:* Nested JSON response parsing, clickable follow-up suggestions, markdown rendering, conversation history
    * **7-Level Thrive Garden (Advanced Gamification):**
-       * Progressive level system requiring increasing activities (5→10→15→25→45→75→105+)
+       * Progressive level system requiring increasing activities (1->5→10→15→25→45→75+)
        * 7 unique animated SVG illustrations with CSS animations and effects
        * Level-specific encouraging messages and progress indicators
        * Grow animations triggered on level advancement with bounce effects
        * *UI Logic:* `ui.js` (rendering plant SVG based on level, updating count, animation triggers, progress bars)
        * *State Management:* `background.js` (receives activity completion triggers), `ui.js` (updates count), `chrome.storage.local` (persistent storage)
        * *Features:* Visual progress tracking, level-up celebrations, motivational messages
-   * **Smart Proactive Notifications:** AI-powered break suggestions with activity monitoring and contextual awareness.
-       * *Core Logic:* `background.js` (uses `chrome.alarms` for scheduling, `chrome.idle` to check activity state, `LanguageModel` for AI message generation, `chrome.notifications` to display)
-       * *Configuration:* `config.js` (notification timing and idle threshold)
-       * *Features:* Content-aware suggestions, proactive overlay popups, idle state detection, customizable timing
+   * **Smart Proactive Notifications:** AI-powered break suggestions with activity monitoring, contextual awareness, and action buttons.
+       * *Core Logic:* `background.js` (uses `chrome.alarms` for scheduling, `chrome.idle` to check activity state, `LanguageModel` for AI message/action generation, `chrome.notifications` to display, `chrome.scripting` for overlay injection)
+       * *Configuration:* `config.js` (notification timing, idle threshold, content extraction settings)
+       * *Features:* Content-aware suggestions, proactive overlay popups with action buttons (View Stretches/Start Breathing), idle state detection, customizable timing, smart content extraction from web pages
+   * **Comprehensive Settings Panel:** User-customizable preferences for notifications, sounds, and UI elements.
+       * *UI Logic:* `ui.js` (settings view, toggle switches, save/load functionality)
+       * *State Management:* `background.js` (settings persistence, real-time application), `chrome.storage.local` (cross-session storage)
+       * *Configuration:* `config.js` (default settings values)
+       * *Features:* Wellness reminders toggle, work session reminder button toggle, sound notifications toggle, conditional UI elements, immediate effect application
    * **Activity History & Analytics:** Comprehensive tracking with today's summary, charts and detailed activity logs.
        * *UI Logic:* `ui.js` (tab switching, chart rendering, table population, data visualization, today's activities summary)
        * *Data Management:* `background.js` (activity recording, storage management)
@@ -64,12 +68,14 @@
   * **Architecture:** Service Worker + Popup UI pattern
   * **Core Chrome APIs:**
       * `chrome.runtime`: Communication between UI and background, lifecycle events.
-      * `chrome.storage.local`: Saving garden progress and user preferences.
+      * `chrome.storage.local`: Saving garden progress, user preferences, and settings.
       * `chrome.alarms`: Scheduling periodic checks for notifications.
       * `chrome.idle`: Detecting user activity/inactivity.
       * `chrome.notifications`: Displaying break reminders.
       * `chrome.windows`: Managing completion popup windows.
       * `chrome.tabs`: Permission for extension functionality.
+      * `chrome.scripting`: Injecting content scripts for overlay display and content extraction.
+      * `chrome.action`: Managing extension popup and badge display.
   * **AI Integration:**
       * `LanguageModel` API (Global object in compatible Chrome versions)
       * Advanced JSON parsing for nested AI responses
@@ -121,7 +127,27 @@ thrive-wellness-extension/
 
 ## 5\. Configuration
 
-Timings for the Pomodoro timer and proactive notifications can be adjusted for testing by editing the values (in minutes) inside `config.js`. **Remember to reload the extension** in `chrome://extensions` after making changes.
+The extension includes comprehensive configuration options in `config.js`:
+
+### Timer & Notification Settings
+* `pomodoroWorkMinutes`: Work session duration (default: 25 minutes)
+* `pomodoroBreakMinutes`: Break session duration (default: 5 minutes)
+* `notificationInitialDelayMinutes`: Initial delay before first notification (default: 30 minutes)
+* `notificationPeriodMinutes`: Interval between notifications (default: 30 minutes)
+* `notificationIdleThresholdMinutes`: Inactivity threshold for notifications (default: 15 minutes)
+
+### AI Content Extraction Settings
+* `minContentLength`: Minimum webpage content length for AI analysis (default: 50 characters)
+* `maxContentLength`: Maximum content length sent to AI (default: 1000 characters)
+* `contentFallbackThreshold`: Minimum main content length before falling back to body text (default: 150 characters)
+
+### UI & Behavior Settings
+* `overlayAutoDismissSeconds`: How long notification overlays stay visible (default: 8 seconds)
+* `defaultWellnessReminders`: Default state for wellness reminder notifications (default: true)
+* `defaultWorkSessionReminder`: Default state for work session reminder button (default: true)
+* `defaultSoundNotifications`: Default state for sound notifications (default: true)
+
+**Remember to reload the extension** in `chrome://extensions` after making configuration changes.
 
 ## 6\. Setup & Installation (for AI Features)
 
@@ -141,22 +167,42 @@ The Thrive Garden implements a progressive difficulty system to encourage long-t
 
 | Level | Activities Required | Cumulative Total | Plant Stage |
 |-------|-------------------|------------------|-------------|
-| 1 | 0-4 | 0-4 | Seed |
-| 2 | 5 | 5 | Sprout |
-| 3 | 10 | 10 | Small Plant |
-| 4 | 15 | 15 | Medium Plant |
-| 5 | 25 | 25 | Large Plant |
-| 6 | 45 | 45 | Full Tree |
-| 7 | 75 | 75+ | Flowering Tree |
+| 1 | 5 | 5 | Seed |
+| 2 | 5 | 10 | Sprout |
+| 3 | 5 | 15 | Small Plant |
+| 4 | 10 | 25 | Medium Plant |
+| 5 | 20 | 45 | Large Plant |
+| 6 | 30 | 75 | Full Tree |
+| 7 | - | 75+ | Flowering Tree |
 
 **Activities include:** Completing Pomodoro sessions, finishing breathing exercises, and completing desk stretches.
 
-## 8\. Future Enhancements
+## 8\. Recent Updates (v2.1)
 
-  * **Advanced AI Features:** Integration with web activity analysis, personalized wellness plans
-  * **Social Features:** Wellness challenges, progress sharing, community support
-  * **Extended Gamification:** Achievement badges, streak tracking, unlockable themes
-  * **Health Integration:** Connection with fitness trackers, sleep data, nutrition apps
-  * **Accessibility:** Voice guidance, screen reader support, customizable UI themes
-  * **Cross-Platform:** Mobile app companion, web dashboard
-  * **Analytics:** Usage insights, wellness trend tracking, personalized recommendations
+### Smart Action Button Notifications
+* **AI-Powered Action Recommendations:** Proactive notifications now include contextual action buttons (View Stretches/Start Breathing) based on AI analysis of user activity
+* **Smart Content Extraction:** Enhanced webpage content analysis using semantic HTML prioritization, noise filtering, and fallback strategies for better AI context
+* **Dynamic Overlay System:** Notification overlays with conditional action buttons that respect user settings and timer state
+
+### Comprehensive Settings Panel
+* **Wellness Reminders Toggle:** Enable/disable all proactive notifications
+* **Work Session Reminder Button:** Control visibility of "Start Work Session" button in notifications (auto-enabled with wellness reminders)
+* **Sound Notifications Toggle:** Control timer completion sounds and audio cues
+* **Persistent Settings:** All preferences saved across browser sessions with immediate effect application
+* **Conditional UI:** Settings dynamically show/hide based on other preferences
+
+### Enhanced Configuration System
+* **Centralized Config:** All key settings moved to `config.js` with descriptive comments
+* **Production Values:** Timer and notification timings set to production-ready defaults
+* **AI Content Settings:** Configurable parameters for content extraction and analysis
+* **UI Behavior Settings:** Customizable overlay timing and default preferences
+
+## 9\. Future Enhancements
+
+   * **Advanced AI Features:** Integration with web activity analysis, personalized wellness plans
+   * **Social Features:** Wellness challenges, progress sharing, community support
+   * **Extended Gamification:** Achievement badges, streak tracking, unlockable themes
+   * **Health Integration:** Connection with fitness trackers, sleep data, nutrition apps
+   * **Accessibility:** Voice guidance, screen reader support, customizable UI themes
+   * **Cross-Platform:** Mobile app companion, web dashboard
+   * **Analytics:** Usage insights, wellness trend tracking, personalized recommendations

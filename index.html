@@ -298,6 +298,56 @@
              </div>
     
          </div>
+        <!-- ===== Settings View ===== -->
+        <div id="view-settings" class="view hidden" data-view="settings" style="background-color: #FAFAF8;">
+            <header class="view-header" style="background-color: transparent;">
+                <button class="back-button" style="color: #78A193; width: 32px; height: 32px;" data-target-view="main">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"> <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /> </svg>
+                </button>
+                <h1 class="view-title" style="color: #333333; font-size: 18px; padding-right: 0;">Settings</h1>
+                <div class="header-icon" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">
+                    <span class="material-symbols-outlined" style="color: #78A193;">settings</span>
+                </div>
+            </header>
+            <div class="settings-content">
+                <div class="settings-section">
+
+                    <div class="setting-item">
+                        <div class="setting-control">
+                            <label class="setting-label">Wellness Reminders</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="wellness-reminders-toggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <p class="setting-hint">Enable/disable periodic wellness break reminders</p>
+                    </div>
+
+                    <div class="setting-item" id="work-session-reminder-setting">
+                        <div class="setting-control">
+                            <label class="setting-label">Work Session Reminder</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="work-session-reminder-toggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <p class="setting-hint">Show "Start Work Session" button in wellness reminders</p>
+                    </div>
+
+                    <div class="setting-item">
+                        <div class="setting-control">
+                            <label class="setting-label">Sound Notifications</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="sound-notifications-toggle">
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </div>
+                        <p class="setting-hint">Play sounds when work/break sessions complete</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- ===== About View ===== -->
         <div id="view-about" class="view hidden" data-view="about" style="background-color: #FAFAF8;">
             <header class="view-header" style="background-color: transparent;">
