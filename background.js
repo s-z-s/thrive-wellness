@@ -9,7 +9,7 @@ try {
     // If successful, 'config' is now globally available from config.js
     if (typeof config === 'undefined') {
         // This case should ideally not happen if config.js is correct
-        console.error("Aegis: config.js loaded but 'config' variable is missing. Using defaults.");
+        console.error("Thrive Wellness: config.js loaded but 'config' variable is missing. Using defaults.");
         // Define config here ONLY if import succeeded but var was missing
         var config = { // Use 'var' to ensure it's in the same scope importScripts expects
             pomodoroWorkMinutes: 25, pomodoroBreakMinutes: 5,
@@ -17,11 +17,11 @@ try {
             notificationIdleThresholdMinutes: 15,
         };
     } else {
-         //  console.log("Aegis: Successfully loaded config.js. Using config:", config);
+         //  console.log("Thrive Wellness: Successfully loaded config.js. Using config:", config);
     }
 } catch (e) {
     // This catches errors ONLY if importScripts itself fails (e.g., file not found, syntax error)
-    console.error("Aegis: Failed to import or parse config.js. Using fallback defaults.", e);
+    console.error("Thrive Wellness: Failed to import or parse config.js. Using fallback defaults.", e);
     // Define config here ONLY if importScripts failed
     var config = { // Use 'var' to match the scope expected if import worked
         pomodoroWorkMinutes: 25, pomodoroBreakMinutes: 5,
@@ -101,7 +101,7 @@ function loadSettings() {
 function sendMessageToPopup(message) { /* ... keep ... */
      chrome.runtime.sendMessage(message, (response) => {
          if (chrome.runtime.lastError && chrome.runtime.lastError.message !== "The message port closed before a response was received.") {
-              console.warn("Aegis: sendMessageToPopup error:", chrome.runtime.lastError.message);
+              console.warn("Thrive Wellness: sendMessageToPopup error:", chrome.runtime.lastError.message);
          }
      });
  }
@@ -110,21 +110,21 @@ async function openPopupAndSendMessage(message) {
      try {
          // Check if we're in an extension context that supports popup opening
          if (typeof chrome !== 'undefined' && chrome.action && chrome.action.openPopup) {
-             //  console.log("Aegis: Attempting to open popup...");
+             //  console.log("Thrive Wellness: Attempting to open popup...");
              await chrome.action.openPopup();
              // Small delay to ensure popup is ready
              setTimeout(() => {
                  // Instead of sending message, directly call the function when popup opens
                  if (message.command === 'showTimerCompletionOverlay') {
                      // The popup will handle showing the overlay and playing sound
-                     //  console.log("Aegis: Popup opened for timer completion");
+                     //  console.log("Thrive Wellness: Popup opened for timer completion");
                  }
              }, 100);
          } else {
-             console.warn("Aegis: Popup opening not supported in this context");
+             console.warn("Thrive Wellness: Popup opening not supported in this context");
          }
      } catch (e) {
-         console.warn("Aegis: Could not open popup:", e);
+         console.warn("Thrive Wellness: Could not open popup:", e);
      }
  }
 function showNotification(id, title, message) { /* ... keep ... */
@@ -147,7 +147,7 @@ async function playAlarmSound() {
            return;
        }
 
-      //  console.log("Aegis: Attempting to play alarm sound via offscreen document...");
+      //  console.log("Thrive Wellness: Attempting to play alarm sound via offscreen document...");
 
       try {
           // Create offscreen document if it doesn't exist
@@ -158,13 +158,13 @@ async function playAlarmSound() {
           let offscreenDocument = existingContexts.find(c => c.documentUrl?.endsWith('offscreen.html'));
 
           if (!offscreenDocument) {
-              //  console.log("Aegis: Creating offscreen document for audio playback");
+              //  console.log("Thrive Wellness: Creating offscreen document for audio playback");
               await chrome.offscreen.createDocument({
                   url: 'offscreen.html',
                   reasons: ['AUDIO_PLAYBACK'],
                   justification: 'Play alarm sound when Pomodoro timer completes'
               });
-              //  console.log("Aegis: Offscreen document created");
+              //  console.log("Thrive Wellness: Offscreen document created");
           }
 
           // Send message to offscreen document to play audio
@@ -173,22 +173,22 @@ async function playAlarmSound() {
           });
 
           if (response?.success) {
-              //  console.log("Aegis: Alarm played via offscreen document");
+              //  console.log("Thrive Wellness: Alarm played via offscreen document");
           } else {
-              console.warn("Aegis: Offscreen document failed to play alarm");
+              console.warn("Thrive Wellness: Offscreen document failed to play alarm");
               // Fallback to system beep
               playSystemBeep();
           }
 
       } catch (e) {
-          console.warn("Aegis: Offscreen document audio failed:", e);
+          console.warn("Thrive Wellness: Offscreen document audio failed:", e);
           // Fallback to system beep
           playSystemBeep();
       }
   }
 
 function playGeneratedBeep() {
-     //  console.log("Aegis: Playing generated beep as fallback");
+     //  console.log("Thrive Wellness: Playing generated beep as fallback");
 
      // Create a simple beep sound using Web Audio API
      // Note: AudioContext in service workers may have restrictions
@@ -200,32 +200,32 @@ function playGeneratedBeep() {
 
              // Resume context if suspended (required by some browsers)
              if (audioContext.state === 'suspended') {
-                 //  console.log("Aegis: AudioContext suspended, resuming...");
+                 //  console.log("Thrive Wellness: AudioContext suspended, resuming...");
                  audioContext.resume().then(() => {
-                     //  console.log("Aegis: AudioContext resumed, playing beep");
+                     //  console.log("Thrive Wellness: AudioContext resumed, playing beep");
                      playBeep(audioContext);
                  }).catch((e) => {
-                     console.warn("Aegis: Failed to resume AudioContext:", e);
+                     console.warn("Thrive Wellness: Failed to resume AudioContext:", e);
                      playFallbackBeep();
                  });
              } else {
-                 //  console.log("Aegis: AudioContext ready, playing beep");
+                 //  console.log("Thrive Wellness: AudioContext ready, playing beep");
                  playBeep(audioContext);
              }
          } else {
-             console.warn("Aegis: Web Audio API not supported");
+             console.warn("Thrive Wellness: Web Audio API not supported");
              // Fallback: try to play a data URL beep
              playFallbackBeep();
          }
      } catch (e) {
-         console.warn("Aegis: Could not play generated beep:", e);
+         console.warn("Thrive Wellness: Could not play generated beep:", e);
          // Fallback beep
          playFallbackBeep();
      }
  }
 
 function playBeep(audioContext) {
-     //  console.log("Aegis: Creating beep with AudioContext");
+     //  console.log("Thrive Wellness: Creating beep with AudioContext");
 
      try {
          const oscillator = audioContext.createOscillator();
@@ -243,14 +243,14 @@ function playBeep(audioContext) {
          oscillator.start(audioContext.currentTime);
          oscillator.stop(audioContext.currentTime + 0.5); // Duration 0.5 seconds
 
-         //  console.log("Aegis: Beep scheduled to play");
+         //  console.log("Thrive Wellness: Beep scheduled to play");
      } catch (e) {
-         console.warn("Aegis: Error creating beep:", e);
+         console.warn("Thrive Wellness: Error creating beep:", e);
      }
  }
 
 function playFallbackBeep() {
-     //  console.log("Aegis: Playing fallback beep");
+     //  console.log("Thrive Wellness: Playing fallback beep");
 
      // Create a simple beep using data URL
      try {
@@ -294,7 +294,7 @@ function playFallbackBeep() {
          const playPromise = audio.play();
          if (playPromise !== undefined) {
              playPromise.then(() => {
-                 //  console.log("Aegis: Fallback beep played successfully");
+                 //  console.log("Thrive Wellness: Fallback beep played successfully");
              }).catch(e => {
                  console.warn("Fallback beep failed:", e);
              });
@@ -313,7 +313,7 @@ function showProactivePopupOverlay(title, message) {
                  func: injectProactiveOverlay,
                  args: [title, message]
              }).catch(e => {
-                 console.warn("Aegis: Failed to inject proactive overlay:", e);
+                 console.warn("Thrive Wellness: Failed to inject proactive overlay:", e);
              });
          }
      });
@@ -477,30 +477,30 @@ function updateTimerBadge() {
 
              chrome.action.setBadgeText({ text: badgeText }, () => {
                  if (chrome.runtime.lastError) {
-                     console.warn("Aegis: Badge text error:", chrome.runtime.lastError.message);
+                     console.warn("Thrive Wellness: Badge text error:", chrome.runtime.lastError.message);
                  } else {
-                     //  console.log("Aegis: Updated badge text:", badgeText);
+                     //  console.log("Thrive Wellness: Updated badge text:", badgeText);
                  }
              });
 
              chrome.action.setBadgeBackgroundColor({ color: badgeColor }, () => {
                  if (chrome.runtime.lastError) {
-                     console.warn("Aegis: Badge color error:", chrome.runtime.lastError.message);
+                     console.warn("Thrive Wellness: Badge color error:", chrome.runtime.lastError.message);
                  } else {
-                     //  console.log("Aegis: Updated badge color:", badgeColor, timerState.isBreak ? 'break' : 'work');
+                     //  console.log("Thrive Wellness: Updated badge color:", badgeColor, timerState.isBreak ? 'break' : 'work');
                  }
              });
          } else {
              chrome.action.setBadgeText({ text: '' }, () => {
                  if (chrome.runtime.lastError) {
-                     console.warn("Aegis: Clear badge error:", chrome.runtime.lastError.message);
+                     console.warn("Thrive Wellness: Clear badge error:", chrome.runtime.lastError.message);
                  } else {
-                     //  console.log("Aegis: Cleared badge");
+                     //  console.log("Thrive Wellness: Cleared badge");
                  }
              });
          }
      } catch (e) {
-         console.warn("Aegis: Badge update failed:", e);
+         console.warn("Thrive Wellness: Badge update failed:", e);
      }
  }
 
@@ -510,7 +510,7 @@ function updateTimer() { /* ... keep ... */
       updateTimerBadge(); // Update badge every second
       sendMessageToPopup({ command: 'updateTimer', time: formatTime(timerState.time), isBreak: timerState.isBreak, isRunning: timerState.isRunning });
       if (timerState.time <= 0) {
-          //  console.log("Aegis: Timer reached zero.");
+          //  console.log("Thrive Wellness: Timer reached zero.");
           if (timerInterval) clearInterval(timerInterval); timerInterval = null;
           timerState.isRunning = false;
           updateTimerBadge(); // Clear badge
@@ -522,7 +522,7 @@ function updateTimer() { /* ... keep ... */
           // Show completion notification badge
           showCompletionBadge();
           if (timerState.isBreak) {
-              //  console.log("Aegis: Break finished. Showing notification.");
+              //  console.log("Thrive Wellness: Break finished. Showing notification.");
               showNotification('pomodoro-break-end', "Break Complete!", `Ready to start your ${config.pomodoroWorkMinutes}-minute work session.`);
               timerState.isBreak = false; timerState.time = timerState.workTime;
               // Store pending completion for when popup opens
@@ -536,13 +536,13 @@ function updateTimer() { /* ... keep ... */
               try {
                   chrome.action.openPopup().catch(() => {
                       // Popup opening failed, but that's ok - notification and badge will show
-                      //  console.log("Aegis: Could not open popup, but notification sent");
+                      //  console.log("Thrive Wellness: Could not open popup, but notification sent");
                   });
               } catch (e) {
-                  //  console.log("Aegis: Popup opening not supported");
+                  //  console.log("Thrive Wellness: Popup opening not supported");
               }
           } else {
-              //  console.log("Aegis: Work session finished. Showing notification.");
+              //  console.log("Thrive Wellness: Work session finished. Showing notification.");
               showNotification('pomodoro-work-end', "Work Session Complete!", `Great job! Time for a ${config.pomodoroBreakMinutes}-minute break.`);
               timerState.isBreak = true; timerState.time = timerState.breakTime;
               // Store pending completion for when popup opens
@@ -556,10 +556,10 @@ function updateTimer() { /* ... keep ... */
               try {
                   chrome.action.openPopup().catch(() => {
                       // Popup opening failed, but that's ok - notification and badge will show
-                      //  console.log("Aegis: Could not open popup, but notification sent");
+                      //  console.log("Thrive Wellness: Could not open popup, but notification sent");
                   });
               } catch (e) {
-                  //  console.log("Aegis: Popup opening not supported");
+                  //  console.log("Thrive Wellness: Popup opening not supported");
               }
           }
           sendMessageToPopup({ command: 'updateTimer', time: formatTime(timerState.time), isBreak: timerState.isBreak, isRunning: timerState.isRunning });
@@ -570,18 +570,18 @@ function showCompletionBadge() {
      try {
          chrome.action.setBadgeText({ text: '!' }, () => {
              if (chrome.runtime.lastError) {
-                 console.warn("Aegis: Completion badge error:", chrome.runtime.lastError.message);
+                 console.warn("Thrive Wellness: Completion badge error:", chrome.runtime.lastError.message);
              } else {
-                 //  console.log("Aegis: Showed completion badge");
+                 //  console.log("Thrive Wellness: Showed completion badge");
              }
          });
          chrome.action.setBadgeBackgroundColor({ color: '#ef4444' }, () => {
              if (chrome.runtime.lastError) {
-                 console.warn("Aegis: Completion badge color error:", chrome.runtime.lastError.message);
+                 console.warn("Thrive Wellness: Completion badge color error:", chrome.runtime.lastError.message);
              }
          });
      } catch (e) {
-         console.warn("Aegis: Completion badge failed:", e);
+         console.warn("Thrive Wellness: Completion badge failed:", e);
      }
  }
 
@@ -589,13 +589,13 @@ function clearCompletionBadge() {
      try {
          chrome.action.setBadgeText({ text: '' }, () => {
              if (chrome.runtime.lastError) {
-                 console.warn("Aegis: Clear completion badge error:", chrome.runtime.lastError.message);
+                 console.warn("Thrive Wellness: Clear completion badge error:", chrome.runtime.lastError.message);
              } else {
-                 //  console.log("Aegis: Cleared completion badge");
+                 //  console.log("Thrive Wellness: Cleared completion badge");
              }
          });
      } catch (e) {
-         console.warn("Aegis: Clear completion badge failed:", e);
+         console.warn("Thrive Wellness: Clear completion badge failed:", e);
      }
  }
 
@@ -609,9 +609,9 @@ function incrementActivitiesCompleted() {
           // Save updated state
           chrome.storage.local.set({ garden: gardenState }, () => {
               if (chrome.runtime.lastError) {
-                  console.warn("Aegis: Failed to save garden state:", chrome.runtime.lastError.message);
+                  console.warn("Thrive Wellness: Failed to save garden state:", chrome.runtime.lastError.message);
               } else {
-                  //  console.log("Aegis: Activities completed incremented to:", gardenState.count);
+                  //  console.log("Thrive Wellness: Activities completed incremented to:", gardenState.count);
                   // Notify popup to update garden display
                   sendMessageToPopup({ command: 'updateGarden', garden: gardenState });
               }
@@ -659,58 +659,58 @@ function recordActivity(type, data) {
 
 // --- AI Functions ---
 async function initializeAI() {
-     //  console.log("Aegis: Starting AI initialization...");
+     //  console.log("Thrive Wellness: Starting AI initialization...");
 
      try {
          // Check if LanguageModel API exists
          if (typeof LanguageModel === 'undefined') {
-             console.warn("Aegis: LanguageModel API not available (requires Chrome Dev + flags)");
+             console.warn("Thrive Wellness: LanguageModel API not available (requires Chrome Dev + flags)");
              aiModelReady = false;
              return;
          }
 
          if (typeof LanguageModel.availability !== 'function') {
-             console.warn("Aegis: LanguageModel.availability not available");
+             console.warn("Thrive Wellness: LanguageModel.availability not available");
              aiModelReady = false;
              return;
          }
 
          if (typeof LanguageModel.create !== 'function') {
-             console.warn("Aegis: LanguageModel.create not available");
+             console.warn("Thrive Wellness: LanguageModel.create not available");
              aiModelReady = false;
              return;
          }
 
-         //  console.log("Aegis: LanguageModel API detected, checking availability...");
+         //  console.log("Thrive Wellness: LanguageModel API detected, checking availability...");
          const availability = await LanguageModel.availability();
-         //  console.log("Aegis: AI Model availability result:", availability);
+         //  console.log("Thrive Wellness: AI Model availability result:", availability);
 
          if (availability === 'available') {
-             //  console.log("Aegis: Creating AI session...");
+             //  console.log("Thrive Wellness: Creating AI session...");
              aiSession = await LanguageModel.create();
              aiModelReady = true;
-             //  console.log("Aegis: AI session created successfully!");
+             //  console.log("Thrive Wellness: AI session created successfully!");
          } else if (availability === 'no') {
-             console.warn("Aegis: AI Model not available (model not downloaded)");
+             console.warn("Thrive Wellness: AI Model not available (model not downloaded)");
              aiModelReady = false;
          } else if (availability === 'after-download') {
-             console.warn("Aegis: AI Model needs download");
+             console.warn("Thrive Wellness: AI Model needs download");
              aiModelReady = false;
          } else {
-             console.warn(`Aegis: AI Model status: ${availability}`);
+             console.warn(`Thrive Wellness: AI Model status: ${availability}`);
              aiModelReady = false;
          }
      } catch (e) {
-         console.error("Aegis: Error during AI initialization:", e);
-         console.error("Aegis: Error details:", e.message, e.name, e.stack);
+         console.error("Thrive Wellness: Error during AI initialization:", e);
+         console.error("Thrive Wellness: Error details:", e.message, e.name, e.stack);
          aiModelReady = false;
      }
 
-     //  console.log("Aegis: AI initialization complete. Ready:", aiModelReady);
+     //  console.log("Thrive Wellness: AI initialization complete. Ready:", aiModelReady);
  }
 async function getAIResponse(prompt) {
         if (!aiModelReady || !aiSession) {
-            console.error("Aegis: AI session not ready for prompt.");
+            console.error("Thrive Wellness: AI session not ready for prompt.");
             return { response: "AI features aren't ready...", followUpQuestions: [] };
         }
 
@@ -736,7 +736,7 @@ async function getAIResponse(prompt) {
                 }
             } catch (parseError) {
                 // If JSON parsing fails, wrap the response in our format
-                console.warn("Aegis: AI response not valid JSON, wrapping manually");
+                console.warn("Thrive Wellness: AI response not valid JSON, wrapping manually");
             }
 
             // Fallback: wrap the raw response
@@ -749,7 +749,7 @@ async function getAIResponse(prompt) {
                 ]
             };
         } catch (e) {
-            console.error("Aegis: Error during AI prompt:", e);
+            console.error("Thrive Wellness: Error during AI prompt:", e);
             if (e.message === "AI response timeout") {
                 return { response: "Sorry, the AI response is taking too long. Please try again.", followUpQuestions: [] };
             }
@@ -759,7 +759,7 @@ async function getAIResponse(prompt) {
 
 async function generateInitialSuggestions() {
       if (!aiModelReady || !aiSession) {
-          console.warn("Aegis: AI not ready for initial suggestions");
+          console.warn("Thrive Wellness: AI not ready for initial suggestions");
           return [
               "How can I improve my posture while working?",
               "What are some quick desk stretches?",
@@ -772,7 +772,7 @@ async function generateInitialSuggestions() {
           const prompt = `You are ThriveBot, a wellness coach for desk workers. Generate 4 diverse, practical questions that desk workers commonly ask about wellness, productivity, and health. Make them specific and actionable. Return only the questions, one per line, no numbering or bullets.`;
           const response = await aiSession.prompt(prompt);
           const suggestions = response.split('\n').filter(line => line.trim().length > 0).slice(0, 4);
-          console.log("Aegis: Generated initial suggestions:", suggestions);
+          console.log("Thrive Wellness: Generated initial suggestions:", suggestions);
           return suggestions.length >= 4 ? suggestions : [
               "How can I improve my posture while working?",
               "What are some quick desk stretches?",
@@ -780,7 +780,7 @@ async function generateInitialSuggestions() {
               "What should I do during my break time?"
           ];
       } catch (e) {
-          console.error("Aegis: Error generating initial suggestions:", e);
+          console.error("Thrive Wellness: Error generating initial suggestions:", e);
           return [
               "How can I improve my posture while working?",
               "What are some quick desk stretches?",
@@ -792,7 +792,7 @@ async function generateInitialSuggestions() {
 
 async function generateFollowUpQuestions(userMessage, botResponse) {
       if (!aiModelReady || !aiSession) {
-          console.warn("Aegis: AI not ready for follow-up questions");
+          console.warn("Thrive Wellness: AI not ready for follow-up questions");
           return [];
       }
 
@@ -805,10 +805,10 @@ ThriveBot: ${botResponse}
 Return only the questions, one per line, no numbering or bullets. Focus on wellness, productivity, and desk worker health topics.`;
           const response = await aiSession.prompt(prompt);
           const questions = response.split('\n').filter(line => line.trim().length > 0 && line.includes('?')).slice(0, 4);
-          console.log("Aegis: Generated follow-up questions:", questions);
+          console.log("Thrive Wellness: Generated follow-up questions:", questions);
           return questions;
       } catch (e) {
-          console.error("Aegis: Error generating follow-up questions:", e);
+          console.error("Thrive Wellness: Error generating follow-up questions:", e);
           return [];
       }
   }
@@ -913,7 +913,7 @@ Page Title: "${pageTitle}"
 URL Type: [${urlHint}]
 Content Snippet:
 """
-${truncatedText}
+${JSON.stringify(truncatedText)}
 """
 
 Supportive Notification (using "Allusion + Physical Action" format):`;
@@ -925,7 +925,7 @@ Supportive Notification (using "Allusion + Physical Action" format):`;
             aiResponse = await aiSession.prompt(aiPrompt);
             console.log("Thrive Wellness: Raw AI String response:", JSON.stringify(aiResponse));
         } catch (aiError) {
-            console.error("Thrive Wellness: AI prompt error:", aiError);
+            console.error("Thrive Wellness: AI prompt error:", aiError.name + ": " + aiError.message);
             return null;
         }
 
@@ -937,14 +937,29 @@ Supportive Notification (using "Allusion + Physical Action" format):`;
         // --- 7. NEW Robust String Parsing Logic ---
         let suggestion = null;
         try {
-            const responseLines = aiResponse.trim().split('\n');
-            
-            // Find the *first* non-empty line to use as our suggestion
-            for (const line of responseLines) {
-                const trimmedLine = line.trim();
-                if (trimmedLine.length > 0) {
-                    suggestion = trimmedLine;
-                    break;
+            // First, try to parse as JSON in case the AI returned JSON
+            try {
+                const parsed = JSON.parse(aiResponse);
+                if (parsed && typeof parsed === 'object' && parsed.suggestion) {
+                    suggestion = parsed.suggestion;
+                } else if (parsed && typeof parsed === 'string') {
+                    suggestion = parsed;
+                }
+            } catch (jsonError) {
+                // Not JSON, continue with string parsing
+            }
+
+            // If not JSON, parse as string
+            if (!suggestion) {
+                const responseLines = aiResponse.trim().split('\n');
+
+                // Find the *first* non-empty line to use as our suggestion
+                for (const line of responseLines) {
+                    const trimmedLine = line.trim();
+                    if (trimmedLine.length > 0) {
+                        suggestion = trimmedLine;
+                        break;
+                    }
                 }
             }
 
@@ -970,7 +985,7 @@ Supportive Notification (using "Allusion + Physical Action" format):`;
                 return suggestion; // This will now be "Lots of messages! Take a short stretch..."
             } else {
                 console.warn("Thrive Wellness: AI string response was invalid after cleanup:", JSON.stringify(suggestion));
-                return null; 
+                return null;
             }
         } catch (e) {
             console.error("Thrive Wellness: Error in parsing AI response:", e);
@@ -1094,10 +1109,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => { /* ...
                             chrome.runtime.sendMessage({ command: 'navigateToStretches' });
                         }, 300);
                     }).catch(() => {
-                        console.warn("Aegis: Could not open popup for stretches");
+                        console.warn("Thrive Wellness: Could not open popup for stretches");
                     });
                 } catch (e) {
-                    console.warn("Aegis: Popup opening not supported for stretches");
+                    console.warn("Thrive Wellness: Popup opening not supported for stretches");
                 }
                 break;
             case 'sendChatMessage':
@@ -1239,11 +1254,11 @@ chrome.alarms.onAlarm.addListener(async (alarm) => { /* ... keep ... */
              return;
          }
 
-         //  console.log("Aegis: Proactive alarm triggered.");
-          if (typeof chrome.idle === 'undefined') { console.error("Aegis: Idle API unavailable."); return; }
+         //  console.log("Thrive Wellness: Proactive alarm triggered.");
+          if (typeof chrome.idle === 'undefined') { console.error("Thrive Wellness: Idle API unavailable."); return; }
           const idleThresholdSeconds = config.notificationIdleThresholdMinutes * 60;
           chrome.idle.queryState(idleThresholdSeconds, async (state) => {
-             //  console.log(`Aegis: Idle state (${idleThresholdSeconds}s): ${state}`);
+             //  console.log(`Thrive Wellness: Idle state (${idleThresholdSeconds}s): ${state}`);
               if (state === 'active') {
                   // 0. Get the active tab for overlay injection
                   let tabs = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -1303,7 +1318,7 @@ Respond ONLY with the single word: 'stretches', 'breathing', or 'none'.`;
                       showNotification('proactive-reminder', title, message);
                   }
               } else {
-                  //  console.log("Aegis: User idle/locked, skipping proactive.");
+                  //  console.log("Thrive Wellness: User idle/locked, skipping proactive.");
               }
           });
       }
@@ -1322,20 +1337,20 @@ chrome.runtime.onStartup.addListener(() => { /* ... keep ... */
  });
 
 // Initial AI check
-//  console.log("Aegis: Service worker started. Init AI...");
+//  console.log("Thrive Wellness: Service worker started. Init AI...");
 initializeAI();
 loadSettings(); // Load settings on service worker start
 
 // Also initialize AI on startup to ensure it's ready
 chrome.runtime.onStartup.addListener(async () => {
-     //  console.log("Aegis: Browser startup detected, initializing AI...");
+     //  console.log("Thrive Wellness: Browser startup detected, initializing AI...");
      await initializeAI();
      loadSettings(); // Load settings on browser startup
  });
 
 // Force AI initialization after a delay to ensure it's ready
 setTimeout(async () => {
-     //  console.log("Aegis: Delayed AI initialization check...");
+     //  console.log("Thrive Wellness: Delayed AI initialization check...");
      if (!aiModelReady) {
          await initializeAI();
      }
@@ -1343,14 +1358,14 @@ setTimeout(async () => {
 
 // Additional AI initialization attempts for reliability
 setTimeout(async () => {
-     //  console.log("Aegis: Second delayed AI initialization check...");
+     //  console.log("Thrive Wellness: Second delayed AI initialization check...");
      if (!aiModelReady) {
          await initializeAI();
      }
  }, 15000);
 
 setTimeout(async () => {
-     //  console.log("Aegis: Third delayed AI initialization check...");
+     //  console.log("Thrive Wellness: Third delayed AI initialization check...");
      if (!aiModelReady) {
          await initializeAI();
      }
@@ -1373,27 +1388,27 @@ function showCompletionPopup(isBreak) {
      try {
          chrome.windows.create(popupOptions, (window) => {
              if (chrome.runtime.lastError) {
-                 console.warn("Aegis: Failed to create completion popup:", chrome.runtime.lastError.message);
+                 console.warn("Thrive Wellness: Failed to create completion popup:", chrome.runtime.lastError.message);
                  // Fallback: try to open popup using action.openPopup
                  try {
                      chrome.action.openPopup().then(() => {
-                         //  console.log("Aegis: Fallback popup opened");
+                         //  console.log("Thrive Wellness: Fallback popup opened");
                          // Send message to show overlay in the popup
                          setTimeout(() => {
                              sendMessageToPopup({ command: 'showTimerCompletionOverlay', isBreak: isBreak });
                          }, 200);
                      }).catch(e => {
-                         console.warn("Aegis: Fallback popup failed:", e);
+                         console.warn("Thrive Wellness: Fallback popup failed:", e);
                      });
                  } catch (e) {
-                     console.warn("Aegis: Fallback popup not supported:", e);
+                     console.warn("Thrive Wellness: Fallback popup not supported:", e);
                  }
              } else {
-                 //  console.log("Aegis: Completion popup created successfully");
+                 //  console.log("Thrive Wellness: Completion popup created successfully");
              }
          });
      } catch (e) {
-         console.warn("Aegis: Error creating completion popup:", e);
+         console.warn("Thrive Wellness: Error creating completion popup:", e);
          // Fallback to overlay in existing popup
          try {
              chrome.action.openPopup().then(() => {
@@ -1401,10 +1416,10 @@ function showCompletionPopup(isBreak) {
                      sendMessageToPopup({ command: 'showTimerCompletionOverlay', isBreak: isBreak });
                  }, 200);
              }).catch(() => {
-                 console.warn("Aegis: All popup methods failed");
+                 console.warn("Thrive Wellness: All popup methods failed");
              });
          } catch (e) {
-             console.warn("Aegis: Fallback failed:", e);
+             console.warn("Thrive Wellness: Fallback failed:", e);
          }
      }
  }
