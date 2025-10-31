@@ -32,7 +32,7 @@
        * *Core Logic:* `background.js` (checking AI availability, creating session via `LanguageModel`, sending prompts, receiving responses)
        * *API Dependency:* `LanguageModel` API (built into Chrome Dev with on-device model)
        * *Features:* Nested JSON response parsing, clickable follow-up suggestions, markdown rendering, conversation history
-   * **7-Level Thrive Garden (Advanced Gamification):**
+   * **7-Level Thrive Tree (Advanced Gamification):**
        * Progressive level system requiring increasing activities (1->5→10→15→25→45→75+)
        * 7 unique animated SVG illustrations with CSS animations and effects
        * Level-specific encouraging messages and progress indicators
@@ -68,7 +68,7 @@
   * **Architecture:** Service Worker + Popup UI pattern
   * **Core Chrome APIs:**
       * `chrome.runtime`: Communication between UI and background, lifecycle events.
-      * `chrome.storage.local`: Saving garden progress, user preferences, and settings.
+      * `chrome.storage.local`: Saving tree progress, user preferences, and settings.
       * `chrome.alarms`: Scheduling periodic checks for notifications.
       * `chrome.idle`: Detecting user activity/inactivity.
       * `chrome.notifications`: Displaying break reminders.
@@ -151,19 +151,19 @@ The extension includes comprehensive configuration options in `config.js`:
 
 ## 6\. Setup & Installation (for AI Features)
 
-1.  **Use Chrome Dev:** Install and open the Google Chrome **Dev** browser (v127+).
-2.  **Enable Flags:** Go to `chrome://flags` in Chrome Dev:
+1.  **Use Chrome Dev:** Install and open the Google Chrome browser (v127+).
+2.  **Enable Flags:** Go to `chrome://flags` in Chrome:
       * Enable `#prompt-api-for-gemini-nano` (or search "Prompt API").
       * Enable `#optimization-guide-on-device-model` (or search "Optimization Guide").
       * Enable any other related "Optimization Guide" flags.
-3.  **Relaunch** Chrome Dev.
+3.  **Relaunch** Chrome.
 4.  **Download Model:** Go to `chrome://components`, find "Optimization Guide On-Device Model", and click "Check for update". Wait for it to download/update.
 5.  **Load Extension:** Go to `chrome://extensions`, enable "Developer mode", click "Load unpacked", and select the `aegis-extension` folder.
-6.  **Troubleshooting:** If AI still doesn't work, ensure all flags are enabled, the component is updated, and try removing/re-loading the extension. Check the background script console for errors (`chrome://extensions` -\> Aegis Details -\> Service worker link).
+6.  **Troubleshooting:** If AI still doesn't work, ensure all flags are enabled, the component is updated, and try removing/re-loading the extension. Check the background script console for errors (`chrome://extensions` -\> Thrive Details -\> Service worker link).
 
-## 7\. Garden Level Progression
+## 7\. Tree Level Progression
 
-The Thrive Garden implements a progressive difficulty system to encourage long-term engagement:
+The Thrive Tree implements a progressive difficulty system to encourage long-term engagement:
 
 | Level | Activities Required | Cumulative Total | Plant Stage |
 |-------|-------------------|------------------|-------------|
