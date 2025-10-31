@@ -5,7 +5,7 @@
 // ** Use 'var' for service worker global scope compatibility with importScripts **
 var config = {
     // Pomodoro Timer Settings (in minutes)
-    pomodoroWorkMinutes: 0.1,     // WORK SESSION: Default duration for a work session (25 minutes)
+    pomodoroWorkMinutes: 25,     // WORK SESSION: Default duration for a work session (25 minutes)
     pomodoroBreakMinutes: 5,     // BREAK SESSION: Default duration for a break session (5 minutes)
 
     // Break Timer Modal Settings
@@ -23,13 +23,9 @@ var config = {
     maxContentLength: 1000,      // Maximum content length to send to AI (to avoid token limits)
     contentFallbackThreshold: 150, // Minimum content length from main element before falling back to body
 
-    // Overlay Settings
-    overlayAutoDismissSeconds: 8, // How long overlay stays visible before auto-dismissing
-
     // Settings Defaults (for UI initialization)
     defaultWellnessReminders: true,      // Default state for wellness reminders
     defaultWorkSessionReminder: true,    // Default state for work session reminder button
     defaultSoundNotifications: true,     // Default state for sound notifications
 };
 // Log to confirm execution
-//  console.log("Aegis: config.js executed, var config declared.");

@@ -721,7 +721,7 @@ function handleChatSubmit(e) {
         console.warn("UI: Chat message request timed out");
         hideThinkingIndicator();
         addChatMessage('bot', "Sorry, the AI response timed out. Please try again.");
-    }, 30000); // 30 second timeout
+    }, 60000); // 60 second timeout
 
     chrome.runtime.sendMessage({ command: 'sendChatMessage', prompt: prompt }, (response) => {
         clearTimeout(timeoutId); // Clear timeout on response
@@ -986,7 +986,7 @@ function handleChatSubmitFromSuggestion(question) {
         console.warn("UI: Suggestion chat request timed out");
         hideThinkingIndicator();
         addChatMessage('bot', "Sorry, the AI response timed out. Please try again.");
-    }, 30000); // 30 second timeout
+    }, 60000); // 60 second timeout
 
     chrome.runtime.sendMessage({ command: 'sendChatMessage', prompt: question }, (response) => {
         clearTimeout(timeoutId); // Clear timeout on response
@@ -1216,36 +1216,64 @@ function hideProactiveOverlay() {
 }
 
 function playAlarmSoundInPopup() {
-    //  console.log("Aegis: Playing alarm sound using HTML5 audio element");
+    // Ensure settings are loaded before checking
+    if (!currentSettings || typeof currentSettings.soundNotifications === 'undefined') {
+        console.log("Thrive Wellness: Settings not loaded yet, loading...");
+        loadSettings();
+        // Give a small delay for settings to load
+        setTimeout(() => {
+            if (!currentSettings.soundNotifications) {
+                console.log("Thrive Wellness: Sound notifications disabled, skipping alarm sound");
+                return;
+            }
+            // Continue with playing sound
+            playSound();
+        }, 100);
+        return;
+    }
 
-    // Use the pre-loaded HTML5 audio element
-    if (dom.alarmAudio) {
-        try {
-            // Reset to beginning in case it was played before
-            dom.alarmAudio.currentTime = 0;
-            dom.alarmAudio.volume = 0.8;
+    // Check if sound notifications are enabled
+    if (!currentSettings.soundNotifications) {
+        console.log("Thrive Wellness: Sound notifications disabled, skipping alarm sound");
+        return;
+    }
 
-            const playPromise = dom.alarmAudio.play();
-            if (playPromise !== undefined) {
-                playPromise.then(() => {
-                    //  console.log("Aegis: HTML5 audio alarm played successfully");
-                }).catch(e => {
-                    console.warn("Aegis: HTML5 audio play failed:", e);
-                    // Fallback to generated beep
+    // Extract the actual sound playing logic
+    function playSound() {
+        //  console.log("Aegis: Playing alarm sound using HTML5 audio element");
+
+        // Use the pre-loaded HTML5 audio element
+        if (dom.alarmAudio) {
+            try {
+                // Reset to beginning in case it was played before
+                dom.alarmAudio.currentTime = 0;
+                dom.alarmAudio.volume = 0.8;
+
+                const playPromise = dom.alarmAudio.play();
+                if (playPromise !== undefined) {
+                    playPromise.then(() => {
+                        //  console.log("Aegis: HTML5 audio alarm played successfully");
+                    }).catch(e => {
+                        console.warn("Aegis: HTML5 audio play failed:", e);
+                        // Fallback to generated beep
+                        playGeneratedBeepInPopup();
+                    });
+                } else {
+                    console.warn("Aegis: HTML5 audio play promise undefined");
                     playGeneratedBeepInPopup();
-                });
-            } else {
-                console.warn("Aegis: HTML5 audio play promise undefined");
+                }
+            } catch (e) {
+                console.warn("Aegis: HTML5 audio setup failed:", e);
                 playGeneratedBeepInPopup();
             }
-        } catch (e) {
-            console.warn("Aegis: HTML5 audio setup failed:", e);
+        } else {
+            console.warn("Aegis: HTML5 audio element not found");
             playGeneratedBeepInPopup();
         }
-    } else {
-        console.warn("Aegis: HTML5 audio element not found");
-        playGeneratedBeepInPopup();
     }
+
+    // Call the playSound function
+    playSound();
 }
 
 function playGeneratedBeepInPopup() {

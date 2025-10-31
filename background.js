@@ -131,11 +131,21 @@ function showNotification(id, title, message) { /* ... keep ... */
      chrome.notifications.create(id, { type: 'basic', iconUrl: 'icons/icon128.png', title: title, message: message, priority: 2 });
  }
 async function playAlarmSound() {
-      // Check settings before playing sound
-      if (!settings.soundNotifications) {
-          console.log("Thrive Wellness: Sound notifications disabled, skipping alarm sound");
-          return;
-      }
+       // Ensure settings are loaded before checking
+       if (!settings || typeof settings.soundNotifications === 'undefined') {
+           console.log("Thrive Wellness: Settings not loaded yet, loading...");
+           await new Promise(resolve => {
+               loadSettings();
+               // Give a small delay for settings to load
+               setTimeout(resolve, 100);
+           });
+       }
+
+       // Check settings before playing sound
+       if (!settings.soundNotifications) {
+           console.log("Thrive Wellness: Sound notifications disabled, skipping alarm sound");
+           return;
+       }
 
       //  console.log("Aegis: Attempting to play alarm sound via offscreen document...");
 
@@ -384,7 +394,7 @@ function injectProactiveOverlay(title, message, aiAction, showWorkSessionButton)
         }
         .thrive-overlay-icon svg { width: 16px; height: 16px; }
         .thrive-overlay-text { flex: 1; min-width: 0; }
-        .thrive-overlay-text h4 { margin: 0 0 4px 0; font-size: 14px; font-weight: 600; color: #1f2937; }
+        .thrive-overlay-text h4 { margin: 5px 0 4px 0; font-size: 14px; font-weight: 600; color: #1f2937; text-transform: none; letter-spacing: normal; }
         .thrive-overlay-text p { margin: 0 0 12px 0; font-size: 13px; color: #6b7280; line-height: 1.4; }
 
         .thrive-overlay-buttons {
@@ -450,12 +460,12 @@ function injectProactiveOverlay(title, message, aiAction, showWorkSessionButton)
         overlay.remove(); style.remove();
     });
 
-    // Auto-dismiss after configured seconds
+    // Auto-dismiss after 8 seconds
     setTimeout(() => {
         if (document.body.contains(overlay)) {
             overlay.remove(); style.remove();
         }
-    }, config.overlayAutoDismissSeconds * 1000);
+    }, 8000);
 }
 function updateTimerBadge() {
      try {
@@ -698,34 +708,54 @@ async function initializeAI() {
 
      //  console.log("Aegis: AI initialization complete. Ready:", aiModelReady);
  }
-async function getAIResponse(prompt) { /* ... keep ... */
-       if (!aiModelReady || !aiSession) { console.error("Aegis: AI session not ready for prompt."); return { response: "AI features aren't ready...", followUpQuestions: [] }; }
-       try {
-           const systemPrompt = "You are ThriveBot, an AI wellness coach for desk workers. Always respond with a JSON object containing:\n- 'response': Your wellness advice structured in engaging markdown format (use headers, bold, lists, etc. for better readability)\n- 'followUpQuestions': Array of 3 relevant follow-up questions as plain text (no markdown formatting)\n\nExample format:\n{\n  \"response\": \"## Welcome! 👋\\n\\n**Great to connect!** Here are some tips for staying healthy at your desk.\\n\\n### Key Points:\\n- Stay hydrated\\n- Take regular breaks\\n- Stretch often\",\n  \"followUpQuestions\": [\n    \"What are some easy stretches I can do?\",\n    \"How often should I take breaks?\",\n    \"What snacks help with focus?\"\n  ]\n}";
-           const rawResponse = await aiSession.prompt(`System: ${systemPrompt}\nUser: ${prompt}\nThriveBot:`);
+async function getAIResponse(prompt) {
+        if (!aiModelReady || !aiSession) {
+            console.error("Aegis: AI session not ready for prompt.");
+            return { response: "AI features aren't ready...", followUpQuestions: [] };
+        }
 
-           try {
-               // Try to parse as JSON
-               const parsed = JSON.parse(rawResponse);
-               if (parsed.response && Array.isArray(parsed.followUpQuestions)) {
-                   return parsed;
-               }
-           } catch (parseError) {
-               // If JSON parsing fails, wrap the response in our format
-               console.warn("Aegis: AI response not valid JSON, wrapping manually");
-           }
+        // Set a timeout for the AI response
+        const timeoutPromise = new Promise((_, reject) => {
+            setTimeout(() => reject(new Error("AI response timeout")), 45000); // 45 second timeout
+        });
 
-           // Fallback: wrap the raw response
-           return {
-               response: rawResponse,
-               followUpQuestions: [
-                   "What are some easy stretches I can do at my desk?",
-                   "How often should I be taking breaks?",
-                   "What kind of snacks are good for focus?"
-               ]
-           };
-       } catch (e) { console.error("Aegis: Error during AI prompt:", e); return { response: "Sorry, error processing request: " + (e.name || e.message), followUpQuestions: [] }; }
-   }
+        try {
+            const systemPrompt = "You are ThriveBot, an AI wellness coach for desk workers. Always respond with a JSON object containing:\n- 'response': Your wellness advice structured in engaging markdown format (use headers, bold, lists, etc. for better readability)\n- 'followUpQuestions': Array of 3 relevant follow-up questions as plain text (no markdown formatting)\n\nExample format:\n{\n  \"response\": \"## Welcome! 👋\\n\\n**Great to connect!** Here are some tips for staying healthy at your desk.\\n\\n### Key Points:\\n- Stay hydrated\\n- Take regular breaks\\n- Stretch often\",\n  \"followUpQuestions\": [\n    \"What are some easy stretches I can do?\",\n    \"How often should I take breaks?\",\n    \"What snacks help with focus?\"\n  ]\n}";
+
+            // Race between AI response and timeout
+            const rawResponse = await Promise.race([
+                aiSession.prompt(`System: ${systemPrompt}\nUser: ${prompt}\nThriveBot:`),
+                timeoutPromise
+            ]);
+
+            try {
+                // Try to parse as JSON
+                const parsed = JSON.parse(rawResponse);
+                if (parsed.response && Array.isArray(parsed.followUpQuestions)) {
+                    return parsed;
+                }
+            } catch (parseError) {
+                // If JSON parsing fails, wrap the response in our format
+                console.warn("Aegis: AI response not valid JSON, wrapping manually");
+            }
+
+            // Fallback: wrap the raw response
+            return {
+                response: rawResponse,
+                followUpQuestions: [
+                    "What are some easy stretches I can do at my desk?",
+                    "How often should I be taking breaks?",
+                    "What kind of snacks are good for focus?"
+                ]
+            };
+        } catch (e) {
+            console.error("Aegis: Error during AI prompt:", e);
+            if (e.message === "AI response timeout") {
+                return { response: "Sorry, the AI response is taking too long. Please try again.", followUpQuestions: [] };
+            }
+            return { response: "Sorry, error processing request: " + (e.name || e.message), followUpQuestions: [] };
+        }
+    }
 
 async function generateInitialSuggestions() {
       if (!aiModelReady || !aiSession) {
@@ -818,7 +848,8 @@ async function getContextualBreakSuggestion() {
         try {
             scriptResults = await chrome.scripting.executeScript({
                 target: { tabId: activeTab.id },
-                func: getSmartTextContent // Assumes getSmartTextContent is defined
+                func: getSmartTextContent, // Assumes getSmartTextContent is defined
+                args: [config.contentFallbackThreshold] // Pass config value as argument
             });
         } catch (scriptError) {
             console.warn("Thrive Wellness: Scripting error:", scriptError.message);
@@ -831,6 +862,9 @@ async function getContextualBreakSuggestion() {
              console.warn("Thrive Wellness: No data from content script.");
              return null;
         }
+
+        // Debug: Log the result data
+        console.log("Thrive Wellness: Content script result:", resultData);
         const pageTitle = resultData.title || '';
         const bodyText = resultData.bodyText || '';
         const truncatedText = bodyText.substring(0, config.maxContentLength);
@@ -950,7 +984,7 @@ Supportive Notification (using "Allusion + Physical Action" format):`;
 }
 
 // This function is stringified and executed in the target tab's context
-function getSmartTextContent() {
+function getSmartTextContent(contentFallbackThreshold) {
     let content = '';
     let title = document.title || '';
 
@@ -983,7 +1017,7 @@ function getSmartTextContent() {
     }
 
     // --- 3. Fallback to Cleaned Body Text if Main Content is Insufficient ---
-    if (!content || content.replace(/\s+/g, ' ').trim().length < config.contentFallbackThreshold) { // Require more text from main or fallback
+    if (!content || content.replace(/\s+/g, ' ').trim().length < contentFallbackThreshold) { // Use passed argument
         console.log("Thrive Wellness Content Script: Main content insufficient or not found, falling back to cleaned body.");
         const clonedBody = document.body.cloneNode(true);
          noisySelectors.forEach(sel => {
@@ -1066,7 +1100,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => { /* ...
                     console.warn("Aegis: Popup opening not supported for stretches");
                 }
                 break;
-            case 'sendChatMessage': console.log("BG: Received sendChatMessage command:", message.prompt); const botResponse = await getAIResponse(message.prompt); console.log("BG: AI response generated:", botResponse); sendResponse({ response: botResponse }); break;
+            case 'sendChatMessage':
+                console.log("BG: Received sendChatMessage command:", message.prompt);
+                try {
+                    const botResponse = await getAIResponse(message.prompt);
+                    console.log("BG: AI response generated:", botResponse);
+                    sendResponse({ response: botResponse });
+                } catch (error) {
+                    console.error("BG: AI response failed:", error);
+                    sendResponse({ response: { response: "Sorry, I'm having trouble responding right now. Please try again in a moment.", followUpQuestions: [] } });
+                }
+                return true; // Keep connection open for async response
+                break;
             case 'generateInitialSuggestions':
                 try {
                     const suggestions = await generateInitialSuggestions();
@@ -1254,6 +1299,8 @@ Respond ONLY with the single word: 'stretches', 'breathing', or 'none'.`;
                       console.log("Thrive Wellness: Injected proactive overlay. Action:", action, "ShowWorkSessionButton:", !timerState.isRunning && settings.workSessionReminder);
                   } catch (e) {
                       console.warn("Thrive Wellness: Failed to inject overlay script:", e.message);
+                      // Fallback: try to show notification instead
+                      showNotification('proactive-reminder', title, message);
                   }
               } else {
                   //  console.log("Aegis: User idle/locked, skipping proactive.");

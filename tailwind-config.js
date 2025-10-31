@@ -6,10 +6,10 @@ tailwind.config = {
         "primary": "#20df80",
         "background-light": "#f6f8f7",
         "background-dark": "#112119",
-        "aegis-bg": "#FAFAF8",
-        "aegis-primary": "#78a193",
-        "aegis-secondary": "#f2a28c",
-        "aegis-text": "#333333"
+        "wellness-bg": "#FAFAF8",
+        "wellness-primary": "#78a193",
+        "wellness-secondary": "#f2a28c",
+        "wellness-text": "#333333"
       },
       fontFamily: {
         "display": ["Epilogue", "sans-serif"],

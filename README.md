@@ -158,7 +158,7 @@ The extension includes comprehensive configuration options in `config.js`:
       * Enable any other related "Optimization Guide" flags.
 3.  **Relaunch** Chrome.
 4.  **Download Model:** Go to `chrome://components`, find "Optimization Guide On-Device Model", and click "Check for update". Wait for it to download/update.
-5.  **Load Extension:** Go to `chrome://extensions`, enable "Developer mode", click "Load unpacked", and select the `aegis-extension` folder.
+5.  **Load Extension:** Go to `chrome://extensions`, enable "Developer mode", click "Load unpacked", and select the `thrive-wellness` folder.
 6.  **Troubleshooting:** If AI still doesn't work, ensure all flags are enabled, the component is updated, and try removing/re-loading the extension. Check the background script console for errors (`chrome://extensions` -\> Thrive Details -\> Service worker link).
 
 ## 7\. Tree Level Progression
